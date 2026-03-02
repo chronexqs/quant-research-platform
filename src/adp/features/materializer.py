@@ -58,8 +58,13 @@ class FeatureMaterialiser:
         # Load snapshot as LazyFrame and ensure temporal ordering
         lf = read_parquet(Path(snap_record.storage_path))
         sort_col = feature_set_def.sort_column or "timestamp"
-        if sort_col in lf.collect_schema().names():
+        schema_names = lf.collect_schema().names()
+        if sort_col in schema_names:
             lf = lf.sort(sort_col)
+        elif feature_set_def.sort_column is not None:
+            raise FeatureError(
+                f"Specified sort column '{sort_col}' not found in snapshot schema"
+            )
 
         # Apply all feature strategies sequentially
         for feat in feature_set_def.features:

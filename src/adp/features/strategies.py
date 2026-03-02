@@ -78,12 +78,15 @@ class VWAPStrategy:
         window = params.get("window")
         pv = pl.col(price_col) * pl.col(vol_col)
         if window:
-            vwap = (
-                pv.rolling_sum(window_size=window)
-                / pl.col(vol_col).rolling_sum(window_size=window)
-            )
+            vol_sum = pl.col(vol_col).rolling_sum(window_size=window)
+            vwap = pl.when(vol_sum.abs() > 1e-15).then(
+                pv.rolling_sum(window_size=window) / vol_sum
+            ).otherwise(pl.lit(None, dtype=pl.Float64))
         else:
-            vwap = pv.cum_sum() / pl.col(vol_col).cum_sum()
+            vol_cum = pl.col(vol_col).cum_sum()
+            vwap = pl.when(vol_cum.abs() > 1e-15).then(
+                pv.cum_sum() / vol_cum
+            ).otherwise(pl.lit(None, dtype=pl.Float64))
         return lf.with_columns(vwap.alias(feature_name))
 
 
@@ -91,9 +94,12 @@ class ReturnsStrategy:
     def compute(
         self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]
     ) -> pl.LazyFrame:
-        return lf.with_columns(
-            pl.col(params["column"]).pct_change().alias(feature_name)
-        )
+        col = params["column"]
+        prev = pl.col(col).shift(1)
+        ret = pl.when(prev.abs() > 1e-15).then(
+            (pl.col(col) - prev) / prev
+        ).otherwise(pl.lit(None, dtype=pl.Float64))
+        return lf.with_columns(ret.alias(feature_name))
 
 
 class LogReturnsStrategy:
@@ -101,9 +107,12 @@ class LogReturnsStrategy:
         self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]
     ) -> pl.LazyFrame:
         col = params["column"]
-        return lf.with_columns(
-            (pl.col(col) / pl.col(col).shift(1)).log().alias(feature_name)
-        )
+        prev = pl.col(col).shift(1)
+        ratio = pl.col(col) / prev
+        safe_log = pl.when((prev.abs() > 1e-15) & (ratio > 0)).then(
+            ratio.log()
+        ).otherwise(pl.lit(None, dtype=pl.Float64))
+        return lf.with_columns(safe_log.alias(feature_name))
 
 
 class ZScoreStrategy:
@@ -112,12 +121,12 @@ class ZScoreStrategy:
     ) -> pl.LazyFrame:
         col = params["column"]
         window = params["window"]
-        return lf.with_columns(
-            (
-                (pl.col(col) - pl.col(col).rolling_mean(window_size=window))
-                / pl.col(col).rolling_std(window_size=window)
-            ).alias(feature_name)
-        )
+        mean = pl.col(col).rolling_mean(window_size=window)
+        std = pl.col(col).rolling_std(window_size=window)
+        z = pl.when(std > 1e-15).then(
+            (pl.col(col) - mean) / std
+        ).otherwise(pl.lit(None, dtype=pl.Float64))
+        return lf.with_columns(z.alias(feature_name))
 
 
 class RealizedVolatilityStrategy:
@@ -126,7 +135,10 @@ class RealizedVolatilityStrategy:
     ) -> pl.LazyFrame:
         col = params["column"]
         window = params["window"]
-        returns = pl.col(col).pct_change()
+        prev = pl.col(col).shift(1)
+        returns = pl.when(prev.abs() > 1e-15).then(
+            (pl.col(col) - prev) / prev
+        ).otherwise(pl.lit(None, dtype=pl.Float64))
         return lf.with_columns(
             (returns.pow(2).rolling_sum(window_size=window)).sqrt().alias(
                 feature_name
@@ -141,7 +153,7 @@ class CrossSectionalRankStrategy:
         col = params["column"]
         group_col = params["group_by"]
         return lf.with_columns(
-            pl.col(col).rank().over(group_col).alias(feature_name)
+            pl.col(col).rank(method="average").over(group_col).alias(feature_name)
         )
 
 

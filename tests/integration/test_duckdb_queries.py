@@ -12,7 +12,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from adp.api import query_dataset, query_features
+from adp.api import _run_duckdb_query, build_backtest_matrix, query_dataset, query_features
 from adp.config import load_datasets_config, load_features_config
 from adp.exceptions import DatasetNotFoundError, FeatureSetNotFoundError
 from adp.features.definitions import parse_feature_set
@@ -21,7 +21,6 @@ from adp.ingestion.file import FileIngestionStrategy
 from adp.metadata.registry import MetadataRegistry
 from adp.processing.schema import compute_schema_hash_from_defs
 from adp.storage.snapshot import SnapshotEngine
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -121,7 +120,7 @@ class TestDuckDBQueries:
         sample_features_yaml: Path,
     ) -> None:
         """SELECT * FROM dataset LIMIT 5 should return 5 rows."""
-        registry, snapshot_id, fsnap_id = _setup_full_environment(
+        registry, _snapshot_id, _fsnap_id = _setup_full_environment(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -144,7 +143,7 @@ class TestDuckDBQueries:
         sample_features_yaml: Path,
     ) -> None:
         """SELECT COUNT(*), AVG(price) should return valid aggregation."""
-        registry, snapshot_id, fsnap_id = _setup_full_environment(
+        registry, _snapshot_id, _fsnap_id = _setup_full_environment(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -166,7 +165,7 @@ class TestDuckDBQueries:
         sample_features_yaml: Path,
     ) -> None:
         """SELECT * FROM features LIMIT 5 should return 5 rows with feature columns."""
-        registry, snapshot_id, fsnap_id = _setup_full_environment(
+        registry, _snapshot_id, _fsnap_id = _setup_full_environment(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -189,7 +188,7 @@ class TestDuckDBQueries:
         sample_features_yaml: Path,
     ) -> None:
         """Verify return type is pl.DataFrame for both dataset and feature queries."""
-        registry, snapshot_id, fsnap_id = _setup_full_environment(
+        registry, _snapshot_id, _fsnap_id = _setup_full_environment(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -215,7 +214,7 @@ class TestDuckDBQueries:
         sample_features_yaml: Path,
     ) -> None:
         """Querying a dataset that does not exist should raise an appropriate error."""
-        registry, snapshot_id, fsnap_id = _setup_full_environment(
+        registry, _snapshot_id, _fsnap_id = _setup_full_environment(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -233,3 +232,156 @@ class TestDuckDBQueries:
                 "SELECT * FROM features LIMIT 5",
                 registry=registry,
             )
+
+
+@pytest.mark.integration
+class TestDuckDBViewNameValidation:
+    """Test that the internal _run_duckdb_query rejects invalid view names."""
+
+    def test_invalid_view_name_raises(self) -> None:
+        with pytest.raises(ValueError, match="Invalid view name"):
+            _run_duckdb_query("/tmp/fake", "SELECT 1", "malicious; DROP TABLE--")
+
+    def test_valid_view_names_accepted(
+        self,
+        tmp_data_dir: Path,
+        sample_datasets_yaml: Path,
+        sample_features_yaml: Path,
+    ) -> None:
+        """Both 'dataset' and 'features' should be accepted as view names."""
+        registry, _snap_id, _fsnap_id = _setup_full_environment(
+            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+        )
+        # These should not raise ValueError
+        query_dataset(
+            "test_trades", "SELECT COUNT(*) FROM dataset", registry=registry,
+        )
+        query_features(
+            "test_trades", "basic_factors",
+            "SELECT COUNT(*) FROM features", registry=registry,
+        )
+
+
+@pytest.mark.integration
+class TestBuildBacktestMatrix:
+    """Integration tests for build_backtest_matrix."""
+
+    def test_basic_backtest_matrix(
+        self,
+        tmp_data_dir: Path,
+        sample_datasets_yaml: Path,
+        sample_features_yaml: Path,
+    ) -> None:
+        """build_backtest_matrix should add forward return columns."""
+        registry, _snap_id, _fsnap_id = _setup_full_environment(
+            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+        )
+
+        result = build_backtest_matrix(
+            "test_trades", "basic_factors",
+            forward_return_periods=[1, 5],
+            price_column="price",
+            sort_column="timestamp",
+            registry=registry,
+        ).collect()
+
+        assert "fwd_return_1" in result.columns
+        assert "fwd_return_5" in result.columns
+        assert len(result) == 100
+
+    def test_missing_price_column_raises(
+        self,
+        tmp_data_dir: Path,
+        sample_datasets_yaml: Path,
+        sample_features_yaml: Path,
+    ) -> None:
+        """Should raise ValueError when price column doesn't exist."""
+        registry, _snap_id, _fsnap_id = _setup_full_environment(
+            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+        )
+
+        with pytest.raises(ValueError, match="Price column"):
+            build_backtest_matrix(
+                "test_trades", "basic_factors",
+                price_column="nonexistent_column",
+                registry=registry,
+            )
+
+    def test_invalid_group_column_raises(
+        self,
+        tmp_data_dir: Path,
+        sample_datasets_yaml: Path,
+        sample_features_yaml: Path,
+    ) -> None:
+        """Should raise ValueError when group column doesn't exist."""
+        registry, _snap_id, _fsnap_id = _setup_full_environment(
+            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+        )
+
+        with pytest.raises(ValueError, match="Group column"):
+            build_backtest_matrix(
+                "test_trades", "basic_factors",
+                price_column="price",
+                group_column="nonexistent_group",
+                registry=registry,
+            )
+
+    def test_group_column_prevents_cross_symbol_bleed(
+        self,
+        tmp_data_dir: Path,
+        sample_datasets_yaml: Path,
+        sample_features_yaml: Path,
+    ) -> None:
+        """Forward returns should not bleed across symbol boundaries."""
+        registry, _snap_id, _fsnap_id = _setup_full_environment(
+            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+        )
+
+        result = build_backtest_matrix(
+            "test_trades", "basic_factors",
+            forward_return_periods=[1],
+            price_column="price",
+            sort_column="timestamp",
+            group_column="symbol",
+            registry=registry,
+        ).collect()
+
+        assert "fwd_return_1" in result.columns
+        # With group_column, the last row of each symbol should have null fwd_return
+        for symbol in result["symbol"].unique().to_list():
+            group = result.filter(pl.col("symbol") == symbol)
+            last_fwd = group["fwd_return_1"][-1]
+            assert last_fwd is None, (
+                f"Last fwd_return_1 for {symbol} should be null, got {last_fwd}"
+            )
+
+    def test_forward_return_values_correct(
+        self,
+        tmp_data_dir: Path,
+        sample_datasets_yaml: Path,
+        sample_features_yaml: Path,
+    ) -> None:
+        """Verify forward return values are mathematically correct."""
+        registry, _snap_id, _fsnap_id = _setup_full_environment(
+            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+        )
+
+        result = build_backtest_matrix(
+            "test_trades", "basic_factors",
+            forward_return_periods=[1],
+            price_column="price",
+            sort_column="timestamp",
+            registry=registry,
+        ).collect()
+
+        prices = result["price"]
+        fwd = result["fwd_return_1"]
+        # Last row should be null (no future price)
+        assert fwd[-1] is None
+        # For non-null rows, verify: fwd_return = price[i+1]/price[i] - 1
+        for i in range(len(result) - 1):
+            if fwd[i] is not None and prices[i] is not None:
+                expected = prices[i + 1] / prices[i] - 1.0
+                assert fwd[i] == pytest.approx(expected, rel=1e-10), (
+                    f"Row {i}: expected {expected}, got {fwd[i]}"
+                )

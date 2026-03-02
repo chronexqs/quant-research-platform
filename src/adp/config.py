@@ -59,7 +59,6 @@ class SourceConfig(BaseModel):
     path: str | None = None
     format: FileFormat | None = None
     database: str | None = None
-    table: str | None = None
     query: str | None = None
     s3_output: str | None = None
     encoding: str = "utf-8"
@@ -68,7 +67,6 @@ class SourceConfig(BaseModel):
 class ProcessingConfig(BaseModel):
     dedup_keys: list[str] | None = None
     dedup_strategy: DedupStrategy = DedupStrategy.keep_last
-    partition_by: str | None = None
     normalization_version: str = "1.0"
 
 

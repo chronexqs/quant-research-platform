@@ -68,7 +68,7 @@ class AthenaIngestionStrategy:
             ingestion_id=ingestion_id,
             dataset_name=dataset_name,
             source_type="athena",
-            source_location=str(raw_path),
+            source_location=query,
             row_count=row_count,
         )
 

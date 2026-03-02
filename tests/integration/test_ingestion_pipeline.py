@@ -18,7 +18,6 @@ from adp.ingestion.file import FileIngestionStrategy
 from adp.metadata.registry import MetadataRegistry
 from adp.processing.schema import compute_schema_hash_from_defs
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -59,7 +58,7 @@ class TestIngestionPipeline:
     ) -> None:
         """Write sample_trades_df to CSV, ingest via FileIngestionStrategy,
         verify Parquet written to raw/ and metadata logged."""
-        registry, ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
+        registry, _ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
 
         strategy = FileIngestionStrategy(
             data_dir=tmp_data_dir / "data",
@@ -94,7 +93,7 @@ class TestIngestionPipeline:
         sample_trades_parquet: Path,
     ) -> None:
         """Ingest from a Parquet source file and verify raw storage."""
-        registry, ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
+        registry, _ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
 
         strategy = FileIngestionStrategy(
             data_dir=tmp_data_dir / "data",
@@ -123,7 +122,7 @@ class TestIngestionPipeline:
         sample_trades_csv: Path,
     ) -> None:
         """Verify raw_ingestions table has correct entry after ingest."""
-        registry, ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
+        registry, _ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
 
         strategy = FileIngestionStrategy(
             data_dir=tmp_data_dir / "data",
@@ -152,7 +151,7 @@ class TestIngestionPipeline:
         sample_datasets_yaml: Path,
     ) -> None:
         """Ingest a nonexistent file, verify no orphan metadata is left."""
-        registry, ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
+        registry, _ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
 
         strategy = FileIngestionStrategy(
             data_dir=tmp_data_dir / "data",
@@ -178,9 +177,9 @@ class TestIngestionPipeline:
     ) -> None:
         """Ingest same file twice without force; second should raise IngestionError.
 
-        Note: ``FileIngestionStrategy`` records the *raw output path* as
+        Note: ``FileIngestionStrategy`` records the *source file path* as
         ``source_location``, so the idempotency check in ``run_ingestion``
-        must be invoked with that same path to detect the duplicate.
+        detects duplicates by matching the original source path.
         """
         registry, ds_config = _setup_environment(tmp_data_dir, sample_datasets_yaml)
 
@@ -195,8 +194,7 @@ class TestIngestionPipeline:
         )
         assert result1.row_count == 100
 
-        # The raw_data_path is what gets stored as source_location in the DB.
-        # Using it as path_override triggers the idempotency check.
+        # Same source path triggers the idempotency check.
         with pytest.raises(IngestionError, match="Already ingested"):
             run_ingestion(
                 dataset_name="test_trades",
@@ -204,7 +202,7 @@ class TestIngestionPipeline:
                 data_dir=tmp_data_dir / "data",
                 registry=registry,
                 force=False,
-                path_override=result1.raw_data_path,
+                path_override=str(sample_trades_csv),
             )
 
         # Only one ingestion record should exist

@@ -29,6 +29,26 @@ ohlcv_btcusdt:
         type: vwap
         price_column: close
         volume_column: volume
+  risk_factors:
+    version: 1
+    description: "Risk-oriented factors for BTCUSDT"
+    features:
+      - name: realized_vol_20
+        type: realized_volatility
+        column: close
+        window: 20
+      - name: close_zscore_30
+        type: z_score
+        column: close
+        window: 30
+      - name: rolling_low_10
+        type: rolling_min
+        column: low
+        window: 10
+      - name: rolling_high_10
+        type: rolling_max
+        column: high
+        window: 10
 
 trade_records:
   trade_factors:
@@ -49,3 +69,38 @@ trade_records:
         type: moving_average
         column: price
         window: 5
+
+rfq_events:
+  rfq_analytics:
+    version: 1
+    description: "RFQ event-level analytics"
+    features:
+      - name: qty_sma_5
+        type: moving_average
+        column: requested_qty
+        window: 5
+      - name: qty_rolling_vol_3
+        type: rolling_std
+        column: requested_qty
+        window: 3
+
+funding_rates:
+  funding_factors:
+    version: 1
+    description: "Funding rate analytics"
+    features:
+      - name: funding_sma_10
+        type: moving_average
+        column: funding_rate
+        window: 10
+      - name: funding_ewma_20
+        type: ewma
+        column: funding_rate
+        span: 20
+      - name: mark_returns
+        type: returns
+        column: mark_price
+      - name: mark_realized_vol_10
+        type: realized_volatility
+        column: mark_price
+        window: 10

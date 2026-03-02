@@ -181,6 +181,41 @@ def generate_trade_records(rfq_events: list[dict[str, str]]) -> list[dict[str, s
     return rows
 
 
+def generate_funding_rates() -> list[dict[str, str]]:
+    """Generate 180 deterministic 8-hour funding rate snapshots for BTCUSDT.
+
+    60 days x 3 snapshots/day = 180 rows.
+    """
+    rows: list[dict[str, str]] = []
+    base_time = datetime(2026, 1, 15, 0, 0, 0)
+    base_price = 42000.0
+
+    for i in range(180):  # 60 days x 3 snapshots per day (every 8h)
+        ts = base_time + timedelta(hours=i * 8)
+        # Funding rate oscillates around 0.01% with a ~30-day cycle
+        funding = round(
+            0.0001 + 0.00005 * math.sin(i * 2 * math.pi / 90),
+            8,
+        )
+        # Mark price drifts with a sine wave
+        mark = round(
+            base_price + 50.0 * math.sin(i * 2 * math.pi / 45) + 0.5 * i,
+            2,
+        )
+        # Index price tracks mark with small basis
+        index_p = round(mark - (i * 7 % 11) * 0.3 + 1.5, 2)
+
+        rows.append({
+            "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.000"),
+            "symbol": "BTCUSDT",
+            "funding_rate": f"{funding:.8f}",
+            "mark_price": f"{mark:.2f}",
+            "index_price": f"{index_p:.2f}",
+        })
+
+    return rows
+
+
 def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     """Write rows to CSV."""
     if not rows:
@@ -204,6 +239,9 @@ def main() -> None:
 
     trades = generate_trade_records(rfq_events)
     write_csv(MOCK_DIR / "trade_records.csv", trades)
+
+    funding = generate_funding_rates()
+    write_csv(MOCK_DIR / "funding_rates.csv", funding)
 
     print("Done.")
 

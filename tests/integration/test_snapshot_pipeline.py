@@ -7,7 +7,7 @@ snapshot coexistence, and Parquet readability.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import polars as pl
@@ -25,12 +25,11 @@ from adp.config import (
     SourceType,
     load_datasets_config,
 )
-from adp.exceptions import SchemaValidationError, SnapshotError
+from adp.exceptions import SchemaValidationError
 from adp.ingestion.file import FileIngestionStrategy
 from adp.metadata.registry import MetadataRegistry
 from adp.processing.schema import compute_schema_hash_from_defs
 from adp.storage.snapshot import SnapshotEngine
-
 
 # ---------------------------------------------------------------------------
 # Helpers

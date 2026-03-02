@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -32,7 +32,7 @@ def in_memory_registry() -> MetadataRegistry:
 def sample_trades_df() -> pl.DataFrame:
     """100-row deterministic trade DataFrame."""
     n = 100
-    base_time = datetime(2026, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+    base_time = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
     return pl.DataFrame({
         "trade_id": [f"T_{i:04d}" for i in range(n)],
         "symbol": ["BTCUSDT" if i % 2 == 0 else "ETHUSDT" for i in range(n)],
@@ -59,7 +59,7 @@ def sample_ohlcv_df() -> pl.DataFrame:
     import math
 
     n = 30
-    base_time = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    base_time = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
     base_price = 42000.0
 
     rows = []

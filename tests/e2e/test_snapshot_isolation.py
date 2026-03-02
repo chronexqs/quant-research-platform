@@ -279,7 +279,7 @@ class TestSnapshotIsolation:
         # Second ingest + snapshot + features
         ing2 = _ingest(data_dir, config_dir, registry)
         snap2_id = _create_snapshot(data_dir, config_dir, registry, ing2)
-        fsnap2_id = _build_features(data_dir, config_dir, registry, snapshot_id=snap2_id)
+        _build_features(data_dir, config_dir, registry, snapshot_id=snap2_id)
 
         # Verify old snapshot is still loadable via explicit snapshot_id
         df_snap1_after = load_dataset(

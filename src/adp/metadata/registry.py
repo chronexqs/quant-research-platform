@@ -239,11 +239,16 @@ class MetadataRegistry:
         description: str = "",
     ) -> DatasetRecord:
         now = _now_iso()
-        with self.transaction() as cur:
-            cur.execute(
-                _SQL_INSERT_DATASET,
-                (dataset_name, description, schema_hash, now, now),
-            )
+        try:
+            with self.transaction() as cur:
+                cur.execute(
+                    _SQL_INSERT_DATASET,
+                    (dataset_name, description, schema_hash, now, now),
+                )
+        except sqlite3.IntegrityError as e:
+            raise MetadataError(
+                f"Dataset '{dataset_name}' is already registered"
+            ) from e
         return DatasetRecord(
             dataset_name=dataset_name,
             description=description,

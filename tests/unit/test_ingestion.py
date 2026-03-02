@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-import polars as pl
 import pytest
 
 from adp.exceptions import IngestionError

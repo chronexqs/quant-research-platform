@@ -38,6 +38,10 @@ def deduplicate(
     if sort_column and sort_column in lf.collect_schema().names():
         lf = lf.sort(sort_column)
 
-    keep: UniqueKeep = "last" if "last" in strategy else "first"
+    strategy_map: dict[str, UniqueKeep] = {
+        "keep_last": "last",
+        "keep_first": "first",
+    }
+    keep: UniqueKeep = strategy_map.get(strategy, "last")
     logger.debug("Deduplicating on keys=%s, keep=%s", dedup_keys, keep)
     return lf.unique(subset=dedup_keys, keep=keep, maintain_order=True)

@@ -10,7 +10,6 @@ import shutil
 import textwrap
 from pathlib import Path
 
-import polars as pl
 import pytest
 
 from adp.api import load_dataset, load_features
@@ -255,7 +254,7 @@ class TestFullPipeline:
         _write_ohlcv_config(config_dir, data_dir)
         _write_ohlcv_features_config(config_dir)
 
-        registry, snapshot_id, fsnap_id = _run_full_pipeline(
+        registry, _snapshot_id, fsnap_id = _run_full_pipeline(
             dataset_name="ohlcv_btcusdt",
             data_dir=data_dir,
             config_dir=config_dir,

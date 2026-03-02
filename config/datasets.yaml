@@ -115,3 +115,32 @@ datasets:
       dedup_keys: [trade_id]
       dedup_strategy: keep_last
       normalization_version: "1.0"
+
+  funding_rates:
+    description: "8-hourly funding rate snapshots for BTCUSDT perpetual"
+    source:
+      type: file
+      path: "data/mock_data/funding_rates.csv"
+      format: csv
+    schema:
+      columns:
+        - name: timestamp
+          type: datetime
+          nullable: false
+          source_timezone: UTC
+        - name: symbol
+          type: str
+          nullable: false
+        - name: funding_rate
+          type: float
+          nullable: false
+        - name: mark_price
+          type: float
+          nullable: false
+        - name: index_price
+          type: float
+          nullable: false
+    processing:
+      dedup_keys: [timestamp, symbol]
+      dedup_strategy: keep_last
+      normalization_version: "1.0"

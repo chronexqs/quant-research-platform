@@ -14,7 +14,6 @@ from adp.features.definitions import (
     parse_feature_set,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────
 
 def _make_feature_set_config(
@@ -97,7 +96,5 @@ class TestComputeDefinitionHash:
         base = [
             FeatureDefinition(name="a", type="returns", params={"column": "price"}),
         ]
-        extended = base + [
-            FeatureDefinition(name="b", type="log_returns", params={"column": "price"}),
-        ]
+        extended = [*base, FeatureDefinition(name="b", type="log_returns", params={"column": "price"})]
         assert compute_definition_hash(base) != compute_definition_hash(extended)

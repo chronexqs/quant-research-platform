@@ -16,7 +16,6 @@ from adp.processing.schema import (
     validate_dataframe,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────
 
 def _col(name: str, tp: str, nullable: bool = False) -> ColumnDef:
@@ -44,7 +43,7 @@ class TestComputeSchemaHash:
         assert compute_schema_hash(BASIC_COLS) == compute_schema_hash(reversed_cols)
 
     def test_changes_on_column_add(self) -> None:
-        extra = BASIC_COLS + [{"name": "volume", "type": "float", "nullable": False}]
+        extra = [*BASIC_COLS, {"name": "volume", "type": "float", "nullable": False}]
         assert compute_schema_hash(BASIC_COLS) != compute_schema_hash(extra)
 
     def test_changes_on_type_change(self) -> None:
@@ -83,7 +82,7 @@ class TestBuildSchemaModel:
 
     def test_rejects_bad_data(self) -> None:
         Model = build_schema_model("trades", [_col("price", "float")])
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValueError):  # Pydantic ValidationError
             Model(price="not_a_float_and_not_convertible")
 
     def test_nullable_field_accepts_none(self) -> None:

@@ -17,7 +17,6 @@ from adp.metadata.registry import MetadataRegistry
 from adp.storage.reader import read_parquet
 
 _DEFAULT_METADATA_PATH = Path("metadata/adp_registry.db")
-_DEFAULT_DATA_DIR = Path("data")
 
 
 def _get_registry(registry_path: Path | None = None) -> MetadataRegistry:
@@ -128,14 +127,15 @@ def query_features(
 def _run_duckdb_query(
     storage_path: str, sql: str, view_name: str
 ) -> pl.DataFrame:
-    """Execute a SQL query over Parquet data via DuckDB (read-only)."""
+    """Execute a SQL query over Parquet data via DuckDB."""
+    if view_name not in ("dataset", "features"):
+        raise ValueError(f"Invalid view name: {view_name!r}")
     parquet_path = str(Path(storage_path).resolve() / "*.parquet")
-    conn = duckdb.connect()
+    escaped_path = parquet_path.replace("'", "''")
+    conn = duckdb.connect(":memory:")
     try:
-        conn.execute("SET access_mode = 'read_only'")
         conn.execute(
-            f"CREATE VIEW {view_name} AS "
-            f"SELECT * FROM read_parquet('{parquet_path}')"
+            f"CREATE VIEW {view_name} AS SELECT * FROM read_parquet('{escaped_path}')"
         )
         return conn.execute(sql).pl()
     finally:
@@ -151,7 +151,10 @@ def list_datasets(
     reg = registry or _get_registry(registry_path)
     records = reg.list_datasets()
     if not records:
-        return pl.DataFrame({"dataset_name": [], "current_snapshot": [], "schema_hash": []})
+        return pl.DataFrame({
+            "dataset_name": [], "current_snapshot": [],
+            "schema_hash": [], "created_at": [],
+        })
     return pl.DataFrame([
         {
             "dataset_name": r.dataset_name,
@@ -173,7 +176,10 @@ def list_snapshots(
     reg = registry or _get_registry(registry_path)
     records = reg.list_snapshots(dataset)
     if not records:
-        return pl.DataFrame({"snapshot_id": [], "row_count": [], "created_at": []})
+        return pl.DataFrame({
+            "snapshot_id": [], "row_count": [],
+            "schema_hash": [], "created_at": [],
+        })
     return pl.DataFrame([
         {
             "snapshot_id": r.snapshot_id,
@@ -195,7 +201,10 @@ def list_feature_sets(
     reg = registry or _get_registry(registry_path)
     records = reg.list_feature_definitions(dataset)
     if not records:
-        return pl.DataFrame({"feature_name": [], "version": [], "definition_hash": []})
+        return pl.DataFrame({
+            "feature_name": [], "version": [],
+            "definition_hash": [], "created_at": [],
+        })
     return pl.DataFrame([
         {
             "feature_name": r.feature_name,
@@ -232,15 +241,32 @@ def build_backtest_matrix(
         dataset, feature_set, registry=registry, registry_path=registry_path
     )
 
-    # Ensure temporal ordering
-    if sort_column in features_lf.collect_schema().names():
-        features_lf = features_lf.sort(sort_column)
+    schema_names = features_lf.collect_schema().names()
 
+    if price_column not in schema_names:
+        raise ValueError(
+            f"Price column '{price_column}' not found in feature set columns"
+        )
+    if group_column and group_column not in schema_names:
+        raise ValueError(
+            f"Group column '{group_column}' not found in feature set columns"
+        )
+
+    # Ensure temporal ordering (with group if multi-asset)
+    if sort_column in schema_names:
+        sort_by = [sort_column]
+        if group_column:
+            sort_by = [group_column, sort_column]
+        features_lf = features_lf.sort(sort_by)
+
+    price = pl.col(price_column)
     for period in forward_return_periods:
-        shift_expr = pl.col(price_column).shift(-period)
+        shift_expr = price.shift(-period)
         if group_column:
             shift_expr = shift_expr.over(group_column)
-        fwd_return = shift_expr / pl.col(price_column) - 1.0
+        fwd_return = pl.when(price.abs() > 1e-15).then(
+            shift_expr / price - 1.0
+        ).otherwise(pl.lit(None, dtype=pl.Float64))
         features_lf = features_lf.with_columns(
             fwd_return.alias(f"fwd_return_{period}")
         )

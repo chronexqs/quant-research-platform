@@ -1,17 +1,56 @@
-data/
+# Generated data (keep data/mock_data/ tracked for reproducibility)
+data/raw/
+data/staged/
+data/normalized/
+data/features/
+
+# Metadata database
 metadata/*.db
 metadata/*.db-wal
 metadata/*.db-shm
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-.venv/
 *.egg-info/
+*.egg
 dist/
 build/
-.mypy_cache/
+.venv/
+
+# Parquet (generated artifacts)
+*.parquet
+
+# Testing & coverage
 .pytest_cache/
-.ruff_cache/
 htmlcov/
 .coverage
-*.parquet
+
+# Linting & type checking
+.mypy_cache/
+.ruff_cache/
+
+# Environment & secrets
+.env
+.env.*
+
+# IDE & editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Claude Code
+.claude/
+
+# Logs
+*.log

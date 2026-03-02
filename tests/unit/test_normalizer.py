@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 import polars as pl
 import pytest
 
 from adp.config import ColumnDef, ColumnType, ProcessingConfig
 from adp.processing.normalizer import NormalizationPipeline, normalize_timezones
-
 
 # ── Helpers ──────────────────────────────────────────────────
 

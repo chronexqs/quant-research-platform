@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
-
 import pytest
 
 from adp.exceptions import MetadataError
@@ -17,7 +15,6 @@ from adp.metadata.models import (
     SnapshotRecord,
 )
 from adp.metadata.registry import MetadataRegistry
-
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -98,7 +95,7 @@ class TestDatasetOperations:
 
     def test_register_dataset_duplicate(self, in_memory_registry: MetadataRegistry) -> None:
         _register_dataset(in_memory_registry)
-        with pytest.raises(sqlite3.IntegrityError):
+        with pytest.raises(MetadataError, match="already registered"):
             _register_dataset(in_memory_registry)
 
     def test_list_datasets(self, in_memory_registry: MetadataRegistry) -> None:
@@ -174,7 +171,7 @@ class TestLineageOperations:
         in_memory_registry.link_snapshot_lineage("snap_001", "ing_002")
         lineage = in_memory_registry.get_snapshot_lineage("snap_001")
         assert len(lineage) == 2
-        assert {l.ingestion_id for l in lineage} == {"ing_001", "ing_002"}
+        assert {rec.ingestion_id for rec in lineage} == {"ing_001", "ing_002"}
 
 
 # ── Transaction rollback ─────────────────────────────────────
@@ -217,6 +214,28 @@ class TestFeatureDefinitionOperations:
         fetched = in_memory_registry.get_feature_definition("basic_factors", "test_ds", version=1)
         assert fetched is not None
         assert fetched.definition_hash == "def_hash_abc"
+
+    def test_hash_mismatch_raises(self, in_memory_registry: MetadataRegistry) -> None:
+        """Re-registering same name+version with different hash should raise."""
+        _register_dataset(in_memory_registry)
+        in_memory_registry.register_feature_definition(
+            feature_name="basic_factors",
+            dataset_name="test_ds",
+            version=1,
+            definition_hash="hash_v1_original",
+        )
+        with pytest.raises(MetadataError, match="hash mismatch"):
+            in_memory_registry.register_feature_definition(
+                feature_name="basic_factors",
+                dataset_name="test_ds",
+                version=1,
+                definition_hash="hash_v1_changed",
+            )
+
+    def test_update_nonexistent_dataset_raises(self, in_memory_registry: MetadataRegistry) -> None:
+        """Updating current_snapshot for a nonexistent dataset should raise."""
+        with pytest.raises(MetadataError, match="not found"):
+            in_memory_registry.update_current_snapshot("ghost_dataset", "snap_001")
 
 
 # ── Feature snapshots ────────────────────────────────────────

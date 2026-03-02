@@ -14,7 +14,6 @@ import polars as pl
 import pytest
 
 from adp.config import (
-    FeatureSetConfig,
     load_datasets_config,
     load_features_config,
 )
@@ -24,7 +23,6 @@ from adp.ingestion.file import FileIngestionStrategy
 from adp.metadata.registry import MetadataRegistry
 from adp.processing.schema import compute_schema_hash_from_defs
 from adp.storage.snapshot import SnapshotEngine
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -112,7 +110,7 @@ class TestFeaturePipeline:
         sample_features_yaml: Path,
     ) -> None:
         """Create snapshot, build features, verify feature Parquet exists."""
-        registry, snapshot_id, features_yaml = _setup_full_snapshot(
+        registry, _snapshot_id, features_yaml = _setup_full_snapshot(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -182,7 +180,7 @@ class TestFeaturePipeline:
         sample_features_yaml: Path,
     ) -> None:
         """Read feature Parquet, verify columns include feature names."""
-        registry, snapshot_id, features_yaml = _setup_full_snapshot(
+        registry, _snapshot_id, features_yaml = _setup_full_snapshot(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -213,7 +211,7 @@ class TestFeaturePipeline:
         sample_features_yaml: Path,
     ) -> None:
         """Check all expected feature columns exist in the output DataFrame."""
-        registry, snapshot_id, features_yaml = _setup_full_snapshot(
+        registry, _snapshot_id, features_yaml = _setup_full_snapshot(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 
@@ -269,7 +267,7 @@ class TestFeaturePipeline:
             data_dir=tmp_data_dir / "data",
             registry=registry,
         )
-        snap2_id = engine.create_snapshot("test_trades", ds_config, [result2.ingestion_id])
+        engine.create_snapshot("test_trades", ds_config, [result2.ingestion_id])
 
         # Build features explicitly from the FIRST snapshot (100 rows)
         features_cfg = load_features_config(features_yaml)
@@ -296,7 +294,7 @@ class TestFeaturePipeline:
         sample_features_yaml: Path,
     ) -> None:
         """Build two different feature sets from the same snapshot."""
-        registry, snapshot_id, features_yaml = _setup_full_snapshot(
+        registry, _snapshot_id, features_yaml = _setup_full_snapshot(
             tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
         )
 

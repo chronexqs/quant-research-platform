@@ -74,10 +74,10 @@ class SnapshotEngine:
             record = self.registry.get_ingestion(ing_id)
             if record is None:
                 raise SnapshotError(f"Ingestion '{ing_id}' not found")
-            raw_path = Path(record.source_location)
-            if not raw_path.exists():
-                # Try relative to data_dir/raw
-                raw_path = self.data_dir / "raw" / dataset_name / f"{ing_id}.parquet"
+            # Always use the canonical raw parquet path
+            raw_path = (
+                self.data_dir / "raw" / dataset_name / f"{ing_id}.parquet"
+            )
             frames.append(read_parquet(raw_path))
 
         # Concatenate if multiple
