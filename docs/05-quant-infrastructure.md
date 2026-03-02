@@ -607,33 +607,45 @@ print(result)
 
 ### 6.5 Visualization Patterns
 
+This visualization uses the `ohlcv_btcusdt` dataset with `candle_factors` features, matching the pattern in `01_platform_quickstart.ipynb` (cell 14).
+
 ```python
 # Cell 6: Visualize factor signals
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend for headless compatibility
 import matplotlib.pyplot as plt
 
-btc_factors = factors.filter(pl.col("symbol") == "BTCUSDT").sort("timestamp")
+from adp import load_features
+
+plot_df = load_features("ohlcv_btcusdt", "candle_factors").collect().sort("timestamp")
+plot_df = plot_df.fill_null(float("nan"))
+ts = plot_df["timestamp"].to_list()
 
 fig, axes = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
 
 # Price with SMA
-axes[0].plot(btc_factors["timestamp"], btc_factors["price"], label="Price", alpha=0.7)
-axes[0].plot(btc_factors["timestamp"], btc_factors["sma_10"], label="SMA(10)", linewidth=2)
-axes[0].plot(btc_factors["timestamp"], btc_factors["sma_50"], label="SMA(50)", linewidth=2)
-axes[0].set_ylabel("Price")
+axes[0].plot(ts, plot_df["close"].to_list(), label="Close", alpha=0.5, linewidth=0.5)
+axes[0].plot(ts, plot_df["sma_10"].to_list(), label="SMA(10)", linewidth=1.5)
+axes[0].plot(ts, plot_df["sma_50"].to_list(), label="SMA(50)", linewidth=1.5)
+axes[0].set_ylabel("Price (USD)")
 axes[0].legend()
 axes[0].set_title("BTCUSDT — Price & Moving Averages")
+axes[0].grid(True, alpha=0.3)
 
 # Rolling volatility
-axes[1].plot(btc_factors["timestamp"], btc_factors["rolling_vol_5"], label="Vol(5)")
-axes[1].plot(btc_factors["timestamp"], btc_factors["rolling_vol_20"], label="Vol(20)")
+axes[1].plot(ts, plot_df["rolling_vol_5"].to_list(), label="Vol(5)", color="orange")
 axes[1].set_ylabel("Volatility")
 axes[1].legend()
-axes[1].set_title("Rolling Volatility")
+axes[1].set_title("5-Period Rolling Volatility")
+axes[1].grid(True, alpha=0.3)
 
-# Returns distribution
-axes[2].bar(btc_factors["timestamp"], btc_factors["simple_returns"], alpha=0.6, width=0.8)
-axes[2].set_ylabel("Returns")
-axes[2].set_title("Simple Returns")
+# Returns (color-coded bars)
+returns = [0.0 if r != r else r for r in plot_df["close_returns"].to_list()]
+colors = ["green" if r >= 0 else "red" for r in returns]
+axes[2].bar(ts, returns, color=colors, alpha=0.6)
+axes[2].set_ylabel("Return")
+axes[2].set_title("Close-to-Close Returns")
+axes[2].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()

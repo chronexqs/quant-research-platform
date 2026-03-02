@@ -708,6 +708,30 @@ for feature in ["rolling_vol_5", "sma_10", "ewma_20", "close_returns", "vwap"]:
     print(f"  {feature:20s} -> {corr:+.6f}")
 ```
 
+Visualize the correlations as a bar chart for quick comparison:
+
+```python
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+features = ["rolling_vol_5", "sma_10", "ewma_20", "close_returns", "vwap"]
+correlations = [
+    clean.select(pl.corr(f, "fwd_return_5").alias("c"))[0, 0]
+    for f in features
+]
+colors = ["steelblue" if c >= 0 else "salmon" for c in correlations]
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.barh(features, correlations, color=colors, edgecolor="black", linewidth=0.5)
+ax.set_xlabel("Pearson Correlation with fwd_return_5")
+ax.set_title("Factor-Return Correlations (5-Second Forward Return)")
+ax.axvline(x=0, color="gray", linewidth=0.5)
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
 ### 5.4 Comparing Multiple Feature Sets
 
 **Goal:** Build multiple feature sets from the same snapshot and compare them.
@@ -750,6 +774,28 @@ vol_compare = combined.drop_nulls(
     pl.corr("rolling_vol_5", "realized_vol_20").alias("correlation"),
 ])
 print(vol_compare)
+```
+
+Overlay both volatility measures on a time series to see how they track each other:
+
+```python
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+vol_df = combined.drop_nulls(subset=["rolling_vol_5", "realized_vol_20"]).sort("timestamp")
+ts = vol_df["timestamp"].to_list()
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(ts, vol_df["rolling_vol_5"].to_list(), label="rolling_vol_5 (candle_factors)", linewidth=1.2)
+ax.plot(ts, vol_df["realized_vol_20"].to_list(), label="realized_vol_20 (risk_factors)", linewidth=1.2)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Volatility")
+ax.set_title("Volatility Comparison: Rolling Vol(5) vs Realized Vol(20)")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
 ```
 
 Both feature sets were built from the same underlying snapshot, so the join on `timestamp` is lossless. The `candle_factors` set focuses on trend signals (SMAs, EWMA, VWAP), while `risk_factors` focuses on risk metrics (realized volatility, z-score, rolling extremes).
@@ -827,6 +873,49 @@ print(
         pl.col("slippage_bps").count().alias("trade_count"),
     ])
 )
+```
+
+Visualize the acceptance rates and slippage:
+
+```python
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+# --- Chart 1: Acceptance rate by counterparty ---
+fig, ax = plt.subplots(figsize=(10, 5))
+counterparties = acceptance["counterparty"].to_list()
+rates = acceptance["acceptance_rate_pct"].to_list()
+colors = [plt.cm.Set2(i) for i in range(len(counterparties))]
+
+ax.bar(counterparties, rates, color=colors, edgecolor="black", linewidth=0.5)
+ax.set_xlabel("Counterparty")
+ax.set_ylabel("Acceptance Rate (%)")
+ax.set_title("RFQ Acceptance Rate by Counterparty")
+ax.grid(True, alpha=0.3, axis="y")
+plt.tight_layout()
+plt.show()
+
+# --- Chart 2: Average slippage by side ---
+side_stats = (
+    slippage
+    .group_by("side")
+    .agg(pl.col("slippage_bps").mean().round(2).alias("avg_slippage_bps"))
+)
+
+fig, ax = plt.subplots(figsize=(8, 5))
+sides = side_stats["side"].to_list()
+avg_slippage = side_stats["avg_slippage_bps"].to_list()
+bar_colors = ["steelblue", "salmon"][:len(sides)]
+
+ax.bar(sides, avg_slippage, color=bar_colors, edgecolor="black", linewidth=0.5)
+ax.set_xlabel("Side")
+ax.set_ylabel("Average Slippage (bps)")
+ax.set_title("Execution Slippage by Trade Side")
+ax.axhline(y=0, color="gray", linewidth=0.5)
+ax.grid(True, alpha=0.3, axis="y")
+plt.tight_layout()
+plt.show()
 ```
 
 ### 6.2 Complex SQL with DuckDB — Multi-Table Analysis
@@ -1348,33 +1437,46 @@ Use `--force` on `adp ingest` to allow re-ingestion when re-running notebook cel
 
 ### 9.6 Visualization Patterns
 
-ADP notebooks use matplotlib for financial data visualization. Common patterns:
+ADP notebooks use matplotlib for financial data visualization. For complete runnable examples, see `01_platform_quickstart.ipynb` (cell 14) or the [Quant Infrastructure Guide](./05-quant-infrastructure.md) (Section 6.5).
+
+**Standard single-panel chart:**
 
 ```python
+import matplotlib
+matplotlib.use("Agg")  # Non-interactive backend for headless compatibility
 import matplotlib.pyplot as plt
 
-# Multi-panel chart (price + indicators + returns)
-fig, axes = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
+df = load_features("ohlcv_btcusdt", "candle_factors").collect().sort("timestamp")
+df = df.fill_null(float("nan"))
 
-# Panel 1: Price with moving averages
-axes[0].plot(timestamps, close, label="Close", alpha=0.5)
-axes[0].plot(timestamps, sma_10, label="SMA(10)")
-axes[0].legend()
-axes[0].set_title("Price & Moving Averages")
-axes[0].grid(True, alpha=0.3)
-
-# Panel 2: Volatility
-axes[1].plot(timestamps, rolling_vol, color="orange")
-axes[1].set_title("Rolling Volatility")
-
-# Panel 3: Returns (green/red bars)
-colors = ["green" if r >= 0 else "red" for r in returns]
-axes[2].bar(range(len(returns)), returns, color=colors, alpha=0.6)
-axes[2].set_title("Returns")
-
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(df["timestamp"].to_list(), df["close"].to_list(), label="Close")
+ax.plot(df["timestamp"].to_list(), df["sma_10"].to_list(), label="SMA(10)")
+ax.set_title("BTCUSDT Close Price & SMA")
+ax.set_ylabel("Price (USD)")
+ax.legend()
+ax.grid(True, alpha=0.3)
 plt.tight_layout()
 plt.show()
 ```
+
+**Multi-panel chart** (see `01_platform_quickstart.ipynb` cell 14 for the full version):
+
+```python
+fig, axes = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
+# axes[0]: Price with moving averages (close, sma_10, sma_50, ewma_20)
+# axes[1]: Rolling volatility (rolling_vol_5)
+# axes[2]: Returns as color-coded bars (close_returns — green/red)
+```
+
+**Conventions:**
+
+- Always use `matplotlib.use("Agg")` before importing `pyplot` (headless compatibility)
+- Use `grid(True, alpha=0.3)` for readability
+- Use `tight_layout()` before `show()`
+- Extract Polars columns with `.to_list()` for matplotlib
+- Handle nulls with `fill_null(float("nan"))` before plotting
+- Color-code directional data: `"green"` for positive, `"red"` for negative
 
 ### 9.7 Best Practices
 
