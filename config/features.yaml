@@ -1,0 +1,51 @@
+ohlcv_btcusdt:
+  candle_factors:
+    version: 1
+    description: "Core candle-based analytical factors for BTCUSDT"
+    features:
+      - name: rolling_vol_5
+        type: rolling_std
+        column: close
+        window: 5
+      - name: sma_10
+        type: moving_average
+        column: close
+        window: 10
+      - name: sma_50
+        type: moving_average
+        column: close
+        window: 50
+      - name: ewma_20
+        type: ewma
+        column: close
+        span: 20
+      - name: close_returns
+        type: returns
+        column: close
+      - name: close_log_returns
+        type: log_returns
+        column: close
+      - name: vwap
+        type: vwap
+        price_column: close
+        volume_column: volume
+
+trade_records:
+  trade_factors:
+    version: 1
+    description: "Trade price analytics"
+    features:
+      - name: price_rolling_vol_3
+        type: rolling_std
+        column: price
+        window: 3
+      - name: price_returns
+        type: returns
+        column: price
+      - name: price_log_returns
+        type: log_returns
+        column: price
+      - name: price_sma_5
+        type: moving_average
+        column: price
+        window: 5

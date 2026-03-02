@@ -1,0 +1,17 @@
+data/
+metadata/*.db
+metadata/*.db-wal
+metadata/*.db-shm
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.parquet

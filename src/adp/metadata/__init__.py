@@ -1,0 +1,1 @@
+"""Metadata registry and models."""

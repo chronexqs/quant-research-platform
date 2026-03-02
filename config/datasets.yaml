@@ -1,0 +1,117 @@
+datasets:
+  ohlcv_btcusdt:
+    description: "BTCUSDT 1-second OHLCV candles — 60 minutes of mock data"
+    source:
+      type: file
+      path: "data/mock_data/ohlcv_btcusdt_1s.csv"
+      format: csv
+    schema:
+      columns:
+        - name: timestamp
+          type: datetime
+          nullable: false
+          source_timezone: UTC
+        - name: symbol
+          type: str
+          nullable: false
+        - name: open
+          type: float
+          nullable: false
+        - name: high
+          type: float
+          nullable: false
+        - name: low
+          type: float
+          nullable: false
+        - name: close
+          type: float
+          nullable: false
+        - name: volume
+          type: float
+          nullable: false
+    processing:
+      dedup_keys: [timestamp, symbol]
+      dedup_strategy: keep_last
+      normalization_version: "1.0"
+
+  rfq_events:
+    description: "Pre-trade RFQ lifecycle events"
+    source:
+      type: file
+      path: "data/mock_data/rfq_events.csv"
+      format: csv
+    schema:
+      columns:
+        - name: event_id
+          type: str
+          nullable: false
+        - name: rfq_id
+          type: str
+          nullable: false
+        - name: instrument
+          type: str
+          nullable: false
+        - name: side
+          type: str
+          nullable: false
+        - name: requested_qty
+          type: float
+          nullable: false
+        - name: counterparty
+          type: str
+          nullable: false
+        - name: timestamp
+          type: datetime
+          nullable: false
+          source_timezone: UTC
+        - name: status
+          type: str
+          nullable: false
+        - name: quoted_price
+          type: float
+          nullable: true
+    processing:
+      dedup_keys: [event_id]
+      dedup_strategy: keep_last
+      normalization_version: "1.0"
+
+  trade_records:
+    description: "Executed trade records from accepted RFQs"
+    source:
+      type: file
+      path: "data/mock_data/trade_records.csv"
+      format: csv
+    schema:
+      columns:
+        - name: trade_id
+          type: str
+          nullable: false
+        - name: rfq_id
+          type: str
+          nullable: false
+        - name: instrument
+          type: str
+          nullable: false
+        - name: side
+          type: str
+          nullable: false
+        - name: price
+          type: float
+          nullable: false
+        - name: quantity
+          type: float
+          nullable: false
+        - name: counterparty
+          type: str
+          nullable: false
+        - name: execution_timestamp
+          type: datetime
+          nullable: false
+          source_timezone: UTC
+        - name: settlement_date
+          type: date
+          nullable: false
+    processing:
+      dedup_keys: [trade_id]
+      dedup_strategy: keep_last
+      normalization_version: "1.0"
