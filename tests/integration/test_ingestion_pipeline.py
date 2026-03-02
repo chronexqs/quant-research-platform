@@ -22,6 +22,7 @@ from adp.processing.schema import compute_schema_hash_from_defs
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _setup_environment(
     tmp_data_dir: Path,
     sample_datasets_yaml: Path,
@@ -46,6 +47,7 @@ def _setup_environment(
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 class TestIngestionPipeline:
     """Integration tests for the file ingestion pipeline."""
@@ -64,11 +66,14 @@ class TestIngestionPipeline:
             data_dir=tmp_data_dir / "data",
             registry=registry,
         )
-        result = strategy.ingest("test_trades", {
-            "path": str(sample_trades_csv),
-            "format": "csv",
-            "encoding": "utf-8",
-        })
+        result = strategy.ingest(
+            "test_trades",
+            {
+                "path": str(sample_trades_csv),
+                "format": "csv",
+                "encoding": "utf-8",
+            },
+        )
 
         # Verify Parquet file was written to the raw directory
         raw_dir = tmp_data_dir / "data" / "raw" / "test_trades"
@@ -99,10 +104,13 @@ class TestIngestionPipeline:
             data_dir=tmp_data_dir / "data",
             registry=registry,
         )
-        result = strategy.ingest("test_trades", {
-            "path": str(sample_trades_parquet),
-            "format": "parquet",
-        })
+        result = strategy.ingest(
+            "test_trades",
+            {
+                "path": str(sample_trades_parquet),
+                "format": "parquet",
+            },
+        )
 
         raw_dir = tmp_data_dir / "data" / "raw" / "test_trades"
         parquet_files = list(raw_dir.glob("*.parquet"))
@@ -128,11 +136,14 @@ class TestIngestionPipeline:
             data_dir=tmp_data_dir / "data",
             registry=registry,
         )
-        result = strategy.ingest("test_trades", {
-            "path": str(sample_trades_csv),
-            "format": "csv",
-            "encoding": "utf-8",
-        })
+        result = strategy.ingest(
+            "test_trades",
+            {
+                "path": str(sample_trades_csv),
+                "format": "csv",
+                "encoding": "utf-8",
+            },
+        )
 
         # Query the metadata registry directly
         ingestions = registry.list_ingestions("test_trades")
@@ -159,11 +170,14 @@ class TestIngestionPipeline:
         )
 
         with pytest.raises(IngestionError, match="File not found"):
-            strategy.ingest("test_trades", {
-                "path": "/nonexistent/path/to/file.csv",
-                "format": "csv",
-                "encoding": "utf-8",
-            })
+            strategy.ingest(
+                "test_trades",
+                {
+                    "path": "/nonexistent/path/to/file.csv",
+                    "format": "csv",
+                    "encoding": "utf-8",
+                },
+            )
 
         # Verify no orphan ingestion records were created
         ingestions = registry.list_ingestions("test_trades")

@@ -14,6 +14,7 @@ from adp.exceptions import ConfigError
 
 # ── Enums ─────────────────────────────────────────────────────
 
+
 class SourceType(StrEnum):
     athena = "athena"
     file = "file"
@@ -42,6 +43,7 @@ class DedupStrategy(StrEnum):
 
 
 # ── Dataset config models ────────────────────────────────────
+
 
 class ColumnDef(BaseModel):
     name: str
@@ -85,6 +87,7 @@ class DatasetsConfig(BaseModel):
 
 # ── Feature config models ────────────────────────────────────
 
+
 def _get_valid_feature_types() -> set[str]:
     """Get valid feature types from the strategy registry (single source of truth)."""
     from adp.features.strategies import STRATEGY_REGISTRY
@@ -108,9 +111,7 @@ class FeatureDefConfig(BaseModel):
         valid_types = _get_valid_feature_types()
         if self.type not in valid_types:
             valid = sorted(valid_types)
-            raise ValueError(
-                f"Unknown feature type: '{self.type}'. Valid: {valid}"
-            )
+            raise ValueError(f"Unknown feature type: '{self.type}'. Valid: {valid}")
         return self
 
 
@@ -124,6 +125,7 @@ FeaturesConfig = dict[str, dict[str, FeatureSetConfig]]
 
 
 # ── Loaders ───────────────────────────────────────────────────
+
 
 def _resolve_config_dir() -> Path:
     env = os.environ.get("ADP_CONFIG_DIR")

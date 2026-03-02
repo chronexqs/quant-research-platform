@@ -74,7 +74,9 @@ class AthenaIngestionStrategy:
 
         logger.info(
             "Ingested %s from Athena (%d rows) -> %s",
-            dataset_name, row_count, raw_path,
+            dataset_name,
+            row_count,
+            raw_path,
         )
 
         return IngestionResult(

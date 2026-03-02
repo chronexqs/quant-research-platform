@@ -18,6 +18,7 @@ from adp.processing.schema import (
 
 # ── Helpers ──────────────────────────────────────────────────
 
+
 def _col(name: str, tp: str, nullable: bool = False) -> ColumnDef:
     return ColumnDef(name=name, type=ColumnType(tp), nullable=nullable)
 
@@ -29,6 +30,7 @@ BASIC_COLS = [
 
 
 # ── compute_schema_hash ─────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestComputeSchemaHash:
@@ -68,6 +70,7 @@ class TestComputeSchemaHash:
 
 # ── build_schema_model ───────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestBuildSchemaModel:
     def test_creates_model(self) -> None:
@@ -92,6 +95,7 @@ class TestBuildSchemaModel:
 
 
 # ── validate_dataframe ───────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestValidateDataframe:

@@ -166,34 +166,45 @@ FROM (
 
 def _to_dataset(row: tuple[Any, ...]) -> DatasetRecord:
     return DatasetRecord(
-        row[0], row[1], row[2], row[3],
-        _parse_dt(row[4]), _parse_dt(row[5]),
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        _parse_dt(row[4]),
+        _parse_dt(row[5]),
     )
 
 
 def _to_ingestion(row: tuple[Any, ...]) -> IngestionRecord:
-    return IngestionRecord(
-        row[0], row[1], row[2], row[3], row[4], _parse_dt(row[5])
-    )
+    return IngestionRecord(row[0], row[1], row[2], row[3], row[4], _parse_dt(row[5]))
 
 
 def _to_snapshot(row: tuple[Any, ...]) -> SnapshotRecord:
     return SnapshotRecord(
-        row[0], row[1], row[2], row[3],
-        row[4], row[5], _parse_dt(row[6]),
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        row[4],
+        row[5],
+        _parse_dt(row[6]),
     )
 
 
 def _to_feat_def(row: tuple[Any, ...]) -> FeatureDefinitionRecord:
-    return FeatureDefinitionRecord(
-        row[0], row[1], row[2], row[3], row[4], _parse_dt(row[5])
-    )
+    return FeatureDefinitionRecord(row[0], row[1], row[2], row[3], row[4], _parse_dt(row[5]))
 
 
 def _to_feat_snap(row: tuple[Any, ...]) -> FeatureSnapshotRecord:
     return FeatureSnapshotRecord(
-        row[0], row[1], row[2], row[3],
-        row[4], row[5], row[6], _parse_dt(row[7]),
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        row[4],
+        row[5],
+        row[6],
+        _parse_dt(row[7]),
     )
 
 
@@ -246,9 +257,7 @@ class MetadataRegistry:
                     (dataset_name, description, schema_hash, now, now),
                 )
         except sqlite3.IntegrityError as e:
-            raise MetadataError(
-                f"Dataset '{dataset_name}' is already registered"
-            ) from e
+            raise MetadataError(f"Dataset '{dataset_name}' is already registered") from e
         return DatasetRecord(
             dataset_name=dataset_name,
             description=description,
@@ -258,41 +267,29 @@ class MetadataRegistry:
             updated_at=_parse_dt(now),
         )
 
-    def get_dataset(
-        self, dataset_name: str
-    ) -> DatasetRecord | None:
-        row = self._conn.execute(
-            _SQL_SELECT_DATASET, (dataset_name,)
-        ).fetchone()
+    def get_dataset(self, dataset_name: str) -> DatasetRecord | None:
+        row = self._conn.execute(_SQL_SELECT_DATASET, (dataset_name,)).fetchone()
         return _to_dataset(row) if row else None
 
     def list_datasets(self) -> list[DatasetRecord]:
         rows = self._conn.execute(_SQL_LIST_DATASETS).fetchall()
         return [_to_dataset(r) for r in rows]
 
-    def update_current_snapshot(
-        self, dataset_name: str, snapshot_id: str
-    ) -> None:
+    def update_current_snapshot(self, dataset_name: str, snapshot_id: str) -> None:
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
-                "UPDATE datasets SET current_snapshot = ?, "
-                "updated_at = ? WHERE dataset_name = ?",
+                "UPDATE datasets SET current_snapshot = ?, updated_at = ? WHERE dataset_name = ?",
                 (snapshot_id, now, dataset_name),
             )
             if cur.rowcount == 0:
-                raise MetadataError(
-                    f"Dataset '{dataset_name}' not found"
-                )
+                raise MetadataError(f"Dataset '{dataset_name}' not found")
 
-    def update_schema_hash(
-        self, dataset_name: str, schema_hash: str
-    ) -> None:
+    def update_schema_hash(self, dataset_name: str, schema_hash: str) -> None:
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
-                "UPDATE datasets SET schema_hash = ?, "
-                "updated_at = ? WHERE dataset_name = ?",
+                "UPDATE datasets SET schema_hash = ?, updated_at = ? WHERE dataset_name = ?",
                 (schema_hash, now, dataset_name),
             )
 
@@ -311,8 +308,12 @@ class MetadataRegistry:
             cur.execute(
                 _SQL_INSERT_INGESTION,
                 (
-                    ingestion_id, dataset_name, source_type,
-                    source_location, row_count, now,
+                    ingestion_id,
+                    dataset_name,
+                    source_type,
+                    source_location,
+                    row_count,
+                    now,
                 ),
             )
         return IngestionRecord(
@@ -324,20 +325,12 @@ class MetadataRegistry:
             ingestion_timestamp=_parse_dt(now),
         )
 
-    def get_ingestion(
-        self, ingestion_id: str
-    ) -> IngestionRecord | None:
-        row = self._conn.execute(
-            _SQL_SELECT_INGESTION, (ingestion_id,)
-        ).fetchone()
+    def get_ingestion(self, ingestion_id: str) -> IngestionRecord | None:
+        row = self._conn.execute(_SQL_SELECT_INGESTION, (ingestion_id,)).fetchone()
         return _to_ingestion(row) if row else None
 
-    def list_ingestions(
-        self, dataset_name: str
-    ) -> list[IngestionRecord]:
-        rows = self._conn.execute(
-            _SQL_LIST_INGESTIONS, (dataset_name,)
-        ).fetchall()
+    def list_ingestions(self, dataset_name: str) -> list[IngestionRecord]:
+        rows = self._conn.execute(_SQL_LIST_INGESTIONS, (dataset_name,)).fetchall()
         return [_to_ingestion(r) for r in rows]
 
     def find_ingestion_by_source(
@@ -365,9 +358,13 @@ class MetadataRegistry:
             cur.execute(
                 _SQL_INSERT_SNAPSHOT,
                 (
-                    snapshot_id, dataset_name, schema_hash,
-                    normalization_version, row_count,
-                    storage_path, now,
+                    snapshot_id,
+                    dataset_name,
+                    schema_hash,
+                    normalization_version,
+                    row_count,
+                    storage_path,
+                    now,
                 ),
             )
         return SnapshotRecord(
@@ -380,29 +377,18 @@ class MetadataRegistry:
             created_at=_parse_dt(now),
         )
 
-    def get_snapshot(
-        self, snapshot_id: str
-    ) -> SnapshotRecord | None:
-        row = self._conn.execute(
-            _SQL_SELECT_SNAPSHOT, (snapshot_id,)
-        ).fetchone()
+    def get_snapshot(self, snapshot_id: str) -> SnapshotRecord | None:
+        row = self._conn.execute(_SQL_SELECT_SNAPSHOT, (snapshot_id,)).fetchone()
         return _to_snapshot(row) if row else None
 
-    def list_snapshots(
-        self, dataset_name: str
-    ) -> list[SnapshotRecord]:
-        rows = self._conn.execute(
-            _SQL_LIST_SNAPSHOTS, (dataset_name,)
-        ).fetchall()
+    def list_snapshots(self, dataset_name: str) -> list[SnapshotRecord]:
+        rows = self._conn.execute(_SQL_LIST_SNAPSHOTS, (dataset_name,)).fetchall()
         return [_to_snapshot(r) for r in rows]
 
-    def link_snapshot_lineage(
-        self, snapshot_id: str, ingestion_id: str
-    ) -> SnapshotLineageRecord:
+    def link_snapshot_lineage(self, snapshot_id: str, ingestion_id: str) -> SnapshotLineageRecord:
         with self.transaction() as cur:
             cur.execute(
-                "INSERT INTO snapshot_lineage "
-                "(snapshot_id, ingestion_id) VALUES (?, ?)",
+                "INSERT INTO snapshot_lineage (snapshot_id, ingestion_id) VALUES (?, ?)",
                 (snapshot_id, ingestion_id),
             )
         return SnapshotLineageRecord(
@@ -410,12 +396,9 @@ class MetadataRegistry:
             ingestion_id=ingestion_id,
         )
 
-    def get_snapshot_lineage(
-        self, snapshot_id: str
-    ) -> list[SnapshotLineageRecord]:
+    def get_snapshot_lineage(self, snapshot_id: str) -> list[SnapshotLineageRecord]:
         rows = self._conn.execute(
-            "SELECT snapshot_id, ingestion_id "
-            "FROM snapshot_lineage WHERE snapshot_id = ?",
+            "SELECT snapshot_id, ingestion_id FROM snapshot_lineage WHERE snapshot_id = ?",
             (snapshot_id,),
         ).fetchall()
         return [SnapshotLineageRecord(r[0], r[1]) for r in rows]
@@ -432,9 +415,7 @@ class MetadataRegistry:
     ) -> FeatureDefinitionRecord:
         # Check for hash mismatch on same version (definition changed
         # without version bump)
-        existing = self.get_feature_definition(
-            feature_name, dataset_name, version
-        )
+        existing = self.get_feature_definition(feature_name, dataset_name, version)
         if existing and existing.definition_hash != definition_hash:
             raise MetadataError(
                 f"Definition hash mismatch for '{feature_name}' v{version}. "
@@ -446,8 +427,12 @@ class MetadataRegistry:
             cur.execute(
                 _SQL_INSERT_FEAT_DEF,
                 (
-                    feature_name, dataset_name, version,
-                    definition_hash, definition_yaml, now,
+                    feature_name,
+                    dataset_name,
+                    version,
+                    definition_hash,
+                    definition_yaml,
+                    now,
                 ),
             )
         return FeatureDefinitionRecord(
@@ -477,12 +462,8 @@ class MetadataRegistry:
             ).fetchone()
         return _to_feat_def(row) if row else None
 
-    def list_feature_definitions(
-        self, dataset_name: str
-    ) -> list[FeatureDefinitionRecord]:
-        rows = self._conn.execute(
-            _SQL_LIST_FEAT_DEFS, (dataset_name,)
-        ).fetchall()
+    def list_feature_definitions(self, dataset_name: str) -> list[FeatureDefinitionRecord]:
+        rows = self._conn.execute(_SQL_LIST_FEAT_DEFS, (dataset_name,)).fetchall()
         return [_to_feat_def(r) for r in rows]
 
     def create_feature_snapshot(
@@ -500,10 +481,14 @@ class MetadataRegistry:
             cur.execute(
                 _SQL_INSERT_FEAT_SNAP,
                 (
-                    feature_snapshot_id, feature_name,
-                    dataset_name, feature_version,
-                    definition_hash, row_count,
-                    storage_path, now,
+                    feature_snapshot_id,
+                    feature_name,
+                    dataset_name,
+                    feature_version,
+                    definition_hash,
+                    row_count,
+                    storage_path,
+                    now,
                 ),
             )
         return FeatureSnapshotRecord(
@@ -517,12 +502,8 @@ class MetadataRegistry:
             created_at=_parse_dt(now),
         )
 
-    def get_feature_snapshot(
-        self, feature_snapshot_id: str
-    ) -> FeatureSnapshotRecord | None:
-        row = self._conn.execute(
-            _SQL_SELECT_FEAT_SNAP, (feature_snapshot_id,)
-        ).fetchone()
+    def get_feature_snapshot(self, feature_snapshot_id: str) -> FeatureSnapshotRecord | None:
+        row = self._conn.execute(_SQL_SELECT_FEAT_SNAP, (feature_snapshot_id,)).fetchone()
         return _to_feat_snap(row) if row else None
 
     def get_latest_feature_snapshot(
@@ -545,9 +526,7 @@ class MetadataRegistry:
                 (dataset_name, feature_name),
             ).fetchall()
         else:
-            rows = self._conn.execute(
-                _SQL_LIST_FEAT_SNAPS_ALL, (dataset_name,)
-            ).fetchall()
+            rows = self._conn.execute(_SQL_LIST_FEAT_SNAPS_ALL, (dataset_name,)).fetchall()
         return [_to_feat_snap(r) for r in rows]
 
     def link_feature_lineage(
@@ -567,9 +546,7 @@ class MetadataRegistry:
             dataset_snapshot_id=dataset_snapshot_id,
         )
 
-    def get_feature_lineage(
-        self, feature_snapshot_id: str
-    ) -> list[FeatureLineageRecord]:
+    def get_feature_lineage(self, feature_snapshot_id: str) -> list[FeatureLineageRecord]:
         rows = self._conn.execute(
             "SELECT feature_snapshot_id, dataset_snapshot_id "
             "FROM feature_lineage "
@@ -580,9 +557,7 @@ class MetadataRegistry:
 
     # ── ID sequence helpers ───────────────────────────────
 
-    def get_next_sequence(
-        self, prefix: str, date_str: str
-    ) -> int:
+    def get_next_sequence(self, prefix: str, date_str: str) -> int:
         """Next sequence for IDs like {prefix}_{date}_{seq}."""
         pattern = f"{prefix}_{date_str}_%"
         row = self._conn.execute(

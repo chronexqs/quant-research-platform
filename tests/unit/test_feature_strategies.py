@@ -25,27 +25,38 @@ from adp.features.strategies import (
 
 # ── Helpers ──────────────────────────────────────────────────
 
+
 def _prices_lf(prices: list[float]) -> pl.LazyFrame:
     return pl.LazyFrame({"price": prices})
 
 
 def _ohlcv_lf() -> pl.LazyFrame:
-    return pl.LazyFrame({
-        "price": [100.0, 102.0, 101.0, 105.0, 103.0],
-        "volume": [10.0, 20.0, 15.0, 25.0, 30.0],
-    })
+    return pl.LazyFrame(
+        {
+            "price": [100.0, 102.0, 101.0, 105.0, 103.0],
+            "volume": [10.0, 20.0, 15.0, 25.0, 30.0],
+        }
+    )
 
 
 # ── Registry ─────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestStrategyRegistry:
     def test_all_strategies_registered(self) -> None:
         expected = {
-            "rolling_std", "moving_average", "ewma",
-            "rolling_min", "rolling_max",
-            "vwap", "returns", "log_returns",
-            "z_score", "realized_volatility", "cross_sectional_rank",
+            "rolling_std",
+            "moving_average",
+            "ewma",
+            "rolling_min",
+            "rolling_max",
+            "vwap",
+            "returns",
+            "log_returns",
+            "z_score",
+            "realized_volatility",
+            "cross_sectional_rank",
         }
         assert set(STRATEGY_REGISTRY.keys()) == expected
 
@@ -55,6 +66,7 @@ class TestStrategyRegistry:
 
 
 # ── MovingAverageStrategy ────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestMovingAverageStrategy:
@@ -73,6 +85,7 @@ class TestMovingAverageStrategy:
 
 # ── RollingStdStrategy ───────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestRollingStdStrategy:
     def test_compute(self) -> None:
@@ -87,6 +100,7 @@ class TestRollingStdStrategy:
 
 
 # ── EWMAStrategy ─────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestEWMAStrategy:
@@ -104,6 +118,7 @@ class TestEWMAStrategy:
 
 # ── RollingMinStrategy ───────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestRollingMinStrategy:
     def test_compute(self) -> None:
@@ -119,6 +134,7 @@ class TestRollingMinStrategy:
 
 # ── RollingMaxStrategy ───────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestRollingMaxStrategy:
     def test_compute(self) -> None:
@@ -133,6 +149,7 @@ class TestRollingMaxStrategy:
 
 
 # ── VWAPStrategy ─────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestVWAPStrategy:
@@ -150,6 +167,7 @@ class TestVWAPStrategy:
 
 
 # ── ReturnsStrategy ──────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestReturnsStrategy:
@@ -175,6 +193,7 @@ class TestReturnsStrategy:
 
 
 # ── LogReturnsStrategy ───────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestLogReturnsStrategy:
@@ -210,14 +229,13 @@ class TestLogReturnsStrategy:
 
 # ── ZScoreStrategy ──────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestZScoreStrategy:
     def test_compute(self) -> None:
         lf = _prices_lf([1.0, 2.0, 3.0, 4.0, 5.0])
         strategy = ZScoreStrategy()
-        result = strategy.compute(
-            lf, "zscore", {"column": "price", "window": 3}
-        ).collect()
+        result = strategy.compute(lf, "zscore", {"column": "price", "window": 3}).collect()
         zscore = result["zscore"]
         # First two are null (window=3)
         assert zscore[0] is None
@@ -229,9 +247,7 @@ class TestZScoreStrategy:
         """When all values in window are identical, std=0 → null (not NaN/inf)."""
         lf = _prices_lf([5.0, 5.0, 5.0, 5.0, 5.0])
         strategy = ZScoreStrategy()
-        result = strategy.compute(
-            lf, "zscore", {"column": "price", "window": 3}
-        ).collect()
+        result = strategy.compute(lf, "zscore", {"column": "price", "window": 3}).collect()
         zscore = result["zscore"]
         # std=0 for constant values → null guard should kick in
         for i in range(2, 5):
@@ -240,14 +256,13 @@ class TestZScoreStrategy:
 
 # ── RealizedVolatilityStrategy ──────────────────────────────
 
+
 @pytest.mark.unit
 class TestRealizedVolatilityStrategy:
     def test_compute(self) -> None:
         lf = _prices_lf([100.0, 102.0, 101.0, 105.0, 103.0])
         strategy = RealizedVolatilityStrategy()
-        result = strategy.compute(
-            lf, "rvol", {"column": "price", "window": 3}
-        ).collect()
+        result = strategy.compute(lf, "rvol", {"column": "price", "window": 3}).collect()
         rvol = result["rvol"]
         # First values are null due to pct_change + rolling window
         assert rvol[0] is None
@@ -258,9 +273,7 @@ class TestRealizedVolatilityStrategy:
         """Constant prices → zero returns → zero realized vol."""
         lf = _prices_lf([100.0, 100.0, 100.0, 100.0, 100.0])
         strategy = RealizedVolatilityStrategy()
-        result = strategy.compute(
-            lf, "rvol", {"column": "price", "window": 3}
-        ).collect()
+        result = strategy.compute(lf, "rvol", {"column": "price", "window": 3}).collect()
         rvol = result["rvol"]
         # pct_change of constant = 0, so sum of squared returns = 0, sqrt(0) = 0
         assert rvol[4] == pytest.approx(0.0)
@@ -269,9 +282,7 @@ class TestRealizedVolatilityStrategy:
         """Zero price should produce null returns, not inf realized vol."""
         lf = _prices_lf([100.0, 0.0, 50.0, 60.0, 70.0])
         strategy = RealizedVolatilityStrategy()
-        result = strategy.compute(
-            lf, "rvol", {"column": "price", "window": 3}
-        ).collect()
+        result = strategy.compute(lf, "rvol", {"column": "price", "window": 3}).collect()
         rvol = result["rvol"]
         # No value should be inf
         for val in rvol.to_list():
@@ -281,17 +292,18 @@ class TestRealizedVolatilityStrategy:
 
 # ── CrossSectionalRankStrategy ──────────────────────────────
 
+
 @pytest.mark.unit
 class TestCrossSectionalRankStrategy:
     def test_compute(self) -> None:
-        lf = pl.LazyFrame({
-            "symbol": ["A", "A", "A", "B", "B", "B"],
-            "price": [10.0, 30.0, 20.0, 5.0, 15.0, 25.0],
-        })
+        lf = pl.LazyFrame(
+            {
+                "symbol": ["A", "A", "A", "B", "B", "B"],
+                "price": [10.0, 30.0, 20.0, 5.0, 15.0, 25.0],
+            }
+        )
         strategy = CrossSectionalRankStrategy()
-        result = strategy.compute(
-            lf, "rank", {"column": "price", "group_by": "symbol"}
-        ).collect()
+        result = strategy.compute(lf, "rank", {"column": "price", "group_by": "symbol"}).collect()
         rank = result["rank"]
         # Within group A: 10→rank 1, 30→rank 3, 20→rank 2
         assert rank[0] == pytest.approx(1.0)
@@ -300,14 +312,14 @@ class TestCrossSectionalRankStrategy:
 
     def test_tied_values_average_rank(self) -> None:
         """Tied values should get average rank (method='average')."""
-        lf = pl.LazyFrame({
-            "symbol": ["A", "A", "A"],
-            "price": [10.0, 10.0, 20.0],
-        })
+        lf = pl.LazyFrame(
+            {
+                "symbol": ["A", "A", "A"],
+                "price": [10.0, 10.0, 20.0],
+            }
+        )
         strategy = CrossSectionalRankStrategy()
-        result = strategy.compute(
-            lf, "rank", {"column": "price", "group_by": "symbol"}
-        ).collect()
+        result = strategy.compute(lf, "rank", {"column": "price", "group_by": "symbol"}).collect()
         rank = result["rank"]
         # Two tied at 10.0 → average of ranks 1,2 → 1.5 each
         assert rank[0] == pytest.approx(1.5)
@@ -317,14 +329,17 @@ class TestCrossSectionalRankStrategy:
 
 # ── VWAPStrategy edge cases ─────────────────────────────────
 
+
 @pytest.mark.unit
 class TestVWAPStrategyEdgeCases:
     def test_zero_volume_produces_null(self) -> None:
         """Zero volume should produce null VWAP, not div-by-zero."""
-        lf = pl.LazyFrame({
-            "price": [100.0, 200.0, 300.0],
-            "volume": [0.0, 0.0, 0.0],
-        })
+        lf = pl.LazyFrame(
+            {
+                "price": [100.0, 200.0, 300.0],
+                "volume": [0.0, 0.0, 0.0],
+            }
+        )
         strategy = VWAPStrategy()
         result = strategy.compute(
             lf, "vwap", {"price_column": "price", "volume_column": "volume"}
@@ -335,10 +350,12 @@ class TestVWAPStrategyEdgeCases:
 
     def test_windowed_zero_volume_produces_null(self) -> None:
         """Zero volume within a rolling window should produce null."""
-        lf = pl.LazyFrame({
-            "price": [100.0, 200.0, 300.0, 400.0],
-            "volume": [0.0, 0.0, 0.0, 10.0],
-        })
+        lf = pl.LazyFrame(
+            {
+                "price": [100.0, 200.0, 300.0, 400.0],
+                "volume": [0.0, 0.0, 0.0, 10.0],
+            }
+        )
         strategy = VWAPStrategy()
         result = strategy.compute(
             lf, "vwap", {"price_column": "price", "volume_column": "volume", "window": 3}

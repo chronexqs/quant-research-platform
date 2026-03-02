@@ -35,6 +35,7 @@ from adp.storage.snapshot import SnapshotEngine
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_trades_csv(path: Path, n: int = 100) -> Path:
     """Create a deterministic trades CSV with tz-naive timestamp strings.
 
@@ -45,14 +46,16 @@ def _make_trades_csv(path: Path, n: int = 100) -> Path:
     rows = []
     for i in range(n):
         ts = base_time.replace(second=i % 60, minute=i // 60)
-        rows.append({
-            "trade_id": f"T_{i:04d}",
-            "symbol": "BTCUSDT" if i % 2 == 0 else "ETHUSDT",
-            "price": 42000.0 + i * 10.0 + (i * 7 % 13),
-            "quantity": 0.1 + (i * 3 % 10) / 10.0,
-            "side": "buy" if i % 3 != 0 else "sell",
-            "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-        })
+        rows.append(
+            {
+                "trade_id": f"T_{i:04d}",
+                "symbol": "BTCUSDT" if i % 2 == 0 else "ETHUSDT",
+                "price": 42000.0 + i * 10.0 + (i * 7 % 13),
+                "quantity": 0.1 + (i * 3 % 10) / 10.0,
+                "side": "buy" if i % 3 != 0 else "sell",
+                "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            }
+        )
 
     df = pl.DataFrame(rows)
     df.write_csv(path)
@@ -90,17 +93,21 @@ def _ingest_csv(
         data_dir=tmp_data_dir / "data",
         registry=registry,
     )
-    result = strategy.ingest(dataset_name, {
-        "path": str(csv_path),
-        "format": "csv",
-        "encoding": "utf-8",
-    })
+    result = strategy.ingest(
+        dataset_name,
+        {
+            "path": str(csv_path),
+            "format": "csv",
+            "encoding": "utf-8",
+        },
+    )
     return result.ingestion_id
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.integration
 class TestSnapshotPipeline:
@@ -216,11 +223,18 @@ class TestSnapshotPipeline:
         ds_config = DatasetConfig(
             description="Bad schema test",
             source=SourceConfig(type=SourceType.file, path="dummy.csv", format=FileFormat.csv),
-            schema=SchemaConfig(columns=[
-                ColumnDef(name="trade_id", type=ColumnType.str_, nullable=False),
-                ColumnDef(name="price", type=ColumnType.float_, nullable=False),
-                ColumnDef(name="timestamp", type=ColumnType.datetime_, nullable=False, source_timezone="UTC"),
-            ]),
+            schema=SchemaConfig(
+                columns=[
+                    ColumnDef(name="trade_id", type=ColumnType.str_, nullable=False),
+                    ColumnDef(name="price", type=ColumnType.float_, nullable=False),
+                    ColumnDef(
+                        name="timestamp",
+                        type=ColumnType.datetime_,
+                        nullable=False,
+                        source_timezone="UTC",
+                    ),
+                ]
+            ),
             processing=ProcessingConfig(
                 dedup_keys=["trade_id"],
                 dedup_strategy=DedupStrategy.keep_last,
@@ -237,10 +251,12 @@ class TestSnapshotPipeline:
 
         # Write CSV with wrong column names (missing expected columns)
         bad_csv = tmp_data_dir / "bad_data.csv"
-        bad_df = pl.DataFrame({
-            "wrong_col_a": ["a", "b", "c"],
-            "wrong_col_b": [1.0, 2.0, 3.0],
-        })
+        bad_df = pl.DataFrame(
+            {
+                "wrong_col_a": ["a", "b", "c"],
+                "wrong_col_b": [1.0, 2.0, 3.0],
+            }
+        )
         bad_df.write_csv(bad_csv)
 
         # Ingest the bad data
@@ -248,11 +264,14 @@ class TestSnapshotPipeline:
             data_dir=tmp_data_dir / "data",
             registry=registry,
         )
-        result = strategy.ingest("bad_schema", {
-            "path": str(bad_csv),
-            "format": "csv",
-            "encoding": "utf-8",
-        })
+        result = strategy.ingest(
+            "bad_schema",
+            {
+                "path": str(bad_csv),
+                "format": "csv",
+                "encoding": "utf-8",
+            },
+        )
 
         # Creating a snapshot should fail due to schema validation
         engine = SnapshotEngine(

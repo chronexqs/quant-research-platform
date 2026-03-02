@@ -16,6 +16,7 @@ from adp.features.definitions import (
 
 # ── Helpers ──────────────────────────────────────────────────
 
+
 def _make_feature_set_config(
     features: list[dict] | None = None,
     version: int = 1,
@@ -33,6 +34,7 @@ def _make_feature_set_config(
 
 
 # ── parse_feature_set ────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestParseFeatureSet:
@@ -72,12 +74,15 @@ class TestParseFeatureSet:
 
 # ── compute_definition_hash ──────────────────────────────────
 
+
 @pytest.mark.unit
 class TestComputeDefinitionHash:
     def test_deterministic(self) -> None:
         features = [
             FeatureDefinition(name="a", type="returns", params={"column": "price"}),
-            FeatureDefinition(name="b", type="moving_average", params={"column": "price", "window": 5}),
+            FeatureDefinition(
+                name="b", type="moving_average", params={"column": "price", "window": 5}
+            ),
         ]
         h1 = compute_definition_hash(features)
         h2 = compute_definition_hash(features)
@@ -85,10 +90,14 @@ class TestComputeDefinitionHash:
 
     def test_hash_changes_on_param_change(self) -> None:
         features_v1 = [
-            FeatureDefinition(name="sma", type="moving_average", params={"column": "price", "window": 5}),
+            FeatureDefinition(
+                name="sma", type="moving_average", params={"column": "price", "window": 5}
+            ),
         ]
         features_v2 = [
-            FeatureDefinition(name="sma", type="moving_average", params={"column": "price", "window": 10}),
+            FeatureDefinition(
+                name="sma", type="moving_average", params={"column": "price", "window": 10}
+            ),
         ]
         assert compute_definition_hash(features_v1) != compute_definition_hash(features_v2)
 
@@ -96,5 +105,8 @@ class TestComputeDefinitionHash:
         base = [
             FeatureDefinition(name="a", type="returns", params={"column": "price"}),
         ]
-        extended = [*base, FeatureDefinition(name="b", type="log_returns", params={"column": "price"})]
+        extended = [
+            *base,
+            FeatureDefinition(name="b", type="log_returns", params={"column": "price"}),
+        ]
         assert compute_definition_hash(base) != compute_definition_hash(extended)

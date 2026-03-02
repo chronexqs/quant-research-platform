@@ -33,17 +33,16 @@ def sample_trades_df() -> pl.DataFrame:
     """100-row deterministic trade DataFrame."""
     n = 100
     base_time = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
-    return pl.DataFrame({
-        "trade_id": [f"T_{i:04d}" for i in range(n)],
-        "symbol": ["BTCUSDT" if i % 2 == 0 else "ETHUSDT" for i in range(n)],
-        "price": [42000.0 + i * 10.0 + (i * 7 % 13) for i in range(n)],
-        "quantity": [0.1 + (i * 3 % 10) / 10.0 for i in range(n)],
-        "side": ["buy" if i % 3 != 0 else "sell" for i in range(n)],
-        "timestamp": [
-            base_time.replace(second=i % 60, minute=i // 60)
-            for i in range(n)
-        ],
-    })
+    return pl.DataFrame(
+        {
+            "trade_id": [f"T_{i:04d}" for i in range(n)],
+            "symbol": ["BTCUSDT" if i % 2 == 0 else "ETHUSDT" for i in range(n)],
+            "price": [42000.0 + i * 10.0 + (i * 7 % 13) for i in range(n)],
+            "quantity": [0.1 + (i * 3 % 10) / 10.0 for i in range(n)],
+            "side": ["buy" if i % 3 != 0 else "sell" for i in range(n)],
+            "timestamp": [base_time.replace(second=i % 60, minute=i // 60) for i in range(n)],
+        }
+    )
 
 
 @pytest.fixture
@@ -72,15 +71,19 @@ def sample_ohlcv_df() -> pl.DataFrame:
         h = round(max(h, o, c) + 0.01, 2)
         lo = round(min(lo, o, c) - 0.01, 2)
         vol = round(1.0 + (i * 17 % 20), 2)
-        rows.append({
-            "timestamp": base_time.replace(day=i + 1) if i < 28 else base_time.replace(month=2, day=i - 27),
-            "symbol": "BTCUSDT",
-            "open": o,
-            "high": h,
-            "low": lo,
-            "close": c,
-            "volume": vol,
-        })
+        rows.append(
+            {
+                "timestamp": base_time.replace(day=i + 1)
+                if i < 28
+                else base_time.replace(month=2, day=i - 27),
+                "symbol": "BTCUSDT",
+                "open": o,
+                "high": h,
+                "low": lo,
+                "close": c,
+                "volume": vol,
+            }
+        )
 
     return pl.DataFrame(rows)
 
@@ -89,7 +92,8 @@ def sample_ohlcv_df() -> pl.DataFrame:
 def sample_datasets_yaml(tmp_data_dir: Path) -> Path:
     """Write a valid datasets.yaml to temp dir."""
     config_path = tmp_data_dir / "config" / "datasets.yaml"
-    config_path.write_text(textwrap.dedent("""\
+    config_path.write_text(
+        textwrap.dedent("""\
         datasets:
           test_trades:
             description: "Test trades"
@@ -122,7 +126,8 @@ def sample_datasets_yaml(tmp_data_dir: Path) -> Path:
               dedup_keys: [trade_id]
               dedup_strategy: keep_last
               normalization_version: "1.0"
-    """))
+    """)
+    )
     return config_path
 
 
@@ -130,7 +135,8 @@ def sample_datasets_yaml(tmp_data_dir: Path) -> Path:
 def sample_features_yaml(tmp_data_dir: Path) -> Path:
     """Write a valid features.yaml to temp dir."""
     config_path = tmp_data_dir / "config" / "features.yaml"
-    config_path.write_text(textwrap.dedent("""\
+    config_path.write_text(
+        textwrap.dedent("""\
         test_trades:
           basic_factors:
             version: 1
@@ -143,7 +149,8 @@ def sample_features_yaml(tmp_data_dir: Path) -> Path:
               - name: price_returns
                 type: returns
                 column: price
-    """))
+    """)
+    )
     return config_path
 
 

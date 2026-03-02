@@ -75,9 +75,7 @@ class SnapshotEngine:
             if record is None:
                 raise SnapshotError(f"Ingestion '{ing_id}' not found")
             # Always use the canonical raw parquet path
-            raw_path = (
-                self.data_dir / "raw" / dataset_name / f"{ing_id}.parquet"
-            )
+            raw_path = self.data_dir / "raw" / dataset_name / f"{ing_id}.parquet"
             frames.append(read_parquet(raw_path))
 
         # Concatenate if multiple
@@ -103,15 +101,18 @@ class SnapshotEngine:
         write_parquet(df, storage_dir)
 
         # Write metadata JSON
-        write_metadata_json(storage_dir, {
-            "snapshot_id": snapshot_id,
-            "dataset_name": dataset_name,
-            "schema_hash": schema_hash,
-            "normalization_version": processing.normalization_version,
-            "row_count": row_count,
-            "column_names": df.columns,
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        write_metadata_json(
+            storage_dir,
+            {
+                "snapshot_id": snapshot_id,
+                "dataset_name": dataset_name,
+                "schema_hash": schema_hash,
+                "normalization_version": processing.normalization_version,
+                "row_count": row_count,
+                "column_names": df.columns,
+                "created_at": datetime.now(UTC).isoformat(),
+            },
+        )
 
         # Register in metadata
         self.registry.create_snapshot(
@@ -132,6 +133,8 @@ class SnapshotEngine:
 
         logger.info(
             "Created snapshot %s for %s (%d rows)",
-            snapshot_id, dataset_name, row_count,
+            snapshot_id,
+            dataset_name,
+            row_count,
         )
         return snapshot_id

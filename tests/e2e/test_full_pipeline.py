@@ -30,6 +30,7 @@ _MOCK_DATA_DIR = _PROJECT_ROOT / "data" / "mock_data"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
     """Create an isolated directory structure and return
     (data_dir, config_dir, metadata_dir)."""
@@ -55,7 +56,8 @@ def _write_ohlcv_config(config_dir: Path, data_dir: Path) -> Path:
     """Write datasets.yaml for OHLCV dataset with correct path."""
     datasets_yaml = config_dir / "datasets.yaml"
     csv_path = data_dir / "mock_data" / "ohlcv_btcusdt_1s.csv"
-    datasets_yaml.write_text(textwrap.dedent(f"""\
+    datasets_yaml.write_text(
+        textwrap.dedent(f"""\
         datasets:
           ohlcv_btcusdt:
             description: "BTCUSDT 1-second OHLCV candles"
@@ -91,14 +93,16 @@ def _write_ohlcv_config(config_dir: Path, data_dir: Path) -> Path:
               dedup_keys: [timestamp, symbol]
               dedup_strategy: keep_last
               normalization_version: "1.0"
-    """))
+    """)
+    )
     return datasets_yaml
 
 
 def _write_ohlcv_features_config(config_dir: Path) -> Path:
     """Write features.yaml for OHLCV dataset."""
     features_yaml = config_dir / "features.yaml"
-    features_yaml.write_text(textwrap.dedent("""\
+    features_yaml.write_text(
+        textwrap.dedent("""\
         ohlcv_btcusdt:
           candle_factors:
             version: 1
@@ -130,7 +134,8 @@ def _write_ohlcv_features_config(config_dir: Path) -> Path:
                 type: vwap
                 price_column: close
                 volume_column: volume
-    """))
+    """)
+    )
     return features_yaml
 
 
@@ -138,7 +143,8 @@ def _write_rfq_config(config_dir: Path, data_dir: Path) -> Path:
     """Write datasets.yaml for RFQ dataset with correct path."""
     datasets_yaml = config_dir / "datasets.yaml"
     csv_path = data_dir / "mock_data" / "rfq_events.csv"
-    datasets_yaml.write_text(textwrap.dedent(f"""\
+    datasets_yaml.write_text(
+        textwrap.dedent(f"""\
         datasets:
           rfq_events:
             description: "Pre-trade RFQ lifecycle events"
@@ -180,7 +186,8 @@ def _write_rfq_config(config_dir: Path, data_dir: Path) -> Path:
               dedup_keys: [event_id]
               dedup_strategy: keep_last
               normalization_version: "1.0"
-    """))
+    """)
+    )
     return datasets_yaml
 
 
@@ -221,7 +228,9 @@ def _run_full_pipeline(
     # Snapshot
     engine = SnapshotEngine(data_dir=data_dir, registry=registry)
     snapshot_id = engine.create_snapshot(
-        dataset_name, ds_config, [ing_result.ingestion_id],
+        dataset_name,
+        ds_config,
+        [ing_result.ingestion_id],
     )
 
     # Features (if requested)
@@ -241,6 +250,7 @@ def _run_full_pipeline(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 class TestFullPipeline:
@@ -269,7 +279,13 @@ class TestFullPipeline:
         ds_df = ds_lf.collect()
         assert len(ds_df) == 3600
         assert set(ds_df.columns) == {
-            "timestamp", "symbol", "open", "high", "low", "close", "volume",
+            "timestamp",
+            "symbol",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
         }
 
         # Load features via API
@@ -278,11 +294,22 @@ class TestFullPipeline:
         assert len(feat_df) == 3600
 
         expected_feature_cols = {
-            "rolling_vol_5", "sma_10", "sma_50", "ewma_20",
-            "close_returns", "close_log_returns", "vwap",
+            "rolling_vol_5",
+            "sma_10",
+            "sma_50",
+            "ewma_20",
+            "close_returns",
+            "close_log_returns",
+            "vwap",
         }
         expected_all_cols = {
-            "timestamp", "symbol", "open", "high", "low", "close", "volume",
+            "timestamp",
+            "symbol",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
         } | expected_feature_cols
         assert expected_all_cols == set(feat_df.columns)
 

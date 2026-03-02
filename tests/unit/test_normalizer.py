@@ -12,11 +12,13 @@ from adp.processing.normalizer import NormalizationPipeline, normalize_timezones
 
 # ── Helpers ──────────────────────────────────────────────────
 
+
 def _ts_col(name: str = "timestamp", tz: str = "UTC") -> ColumnDef:
     return ColumnDef(name=name, type=ColumnType.datetime_, nullable=False, source_timezone=tz)
 
 
 # ── normalize_timezones ──────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestNormalizeTimezones:
@@ -53,6 +55,7 @@ class TestNormalizeTimezones:
 
 # ── NormalizationPipeline ────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestNormalizationPipeline:
     def test_pipeline_chains_steps(self) -> None:
@@ -82,7 +85,9 @@ class TestNormalizationPipeline:
         """from_config creates a pipeline with 3 steps (validate, tz, dedup)."""
         cols = [
             ColumnDef(name="price", type=ColumnType.float_, nullable=False),
-            ColumnDef(name="timestamp", type=ColumnType.datetime_, nullable=False, source_timezone="UTC"),
+            ColumnDef(
+                name="timestamp", type=ColumnType.datetime_, nullable=False, source_timezone="UTC"
+            ),
         ]
         processing = ProcessingConfig(
             dedup_keys=["price"],
@@ -91,9 +96,7 @@ class TestNormalizationPipeline:
         pipeline = NormalizationPipeline.from_config(cols, processing)
         assert len(pipeline.steps) == 3
 
-    def test_pipeline_dedup_integration(
-        self, sample_trades_with_duplicates: pl.DataFrame
-    ) -> None:
+    def test_pipeline_dedup_integration(self, sample_trades_with_duplicates: pl.DataFrame) -> None:
         """Full pipeline deduplicates using configured keys."""
         # Cast timestamp to string to simulate raw CSV input (cast_dataframe
         # uses str.to_datetime, so it expects string input).
@@ -106,7 +109,9 @@ class TestNormalizationPipeline:
             ColumnDef(name="price", type=ColumnType.float_, nullable=False),
             ColumnDef(name="quantity", type=ColumnType.float_, nullable=False),
             ColumnDef(name="side", type=ColumnType.str_, nullable=False),
-            ColumnDef(name="timestamp", type=ColumnType.datetime_, nullable=False, source_timezone="UTC"),
+            ColumnDef(
+                name="timestamp", type=ColumnType.datetime_, nullable=False, source_timezone="UTC"
+            ),
         ]
         processing = ProcessingConfig(
             dedup_keys=["trade_id"],

@@ -30,9 +30,7 @@ def get_strategy(
     cls = STRATEGY_REGISTRY.get(source_type)
     if cls is None:
         valid = sorted(STRATEGY_REGISTRY)
-        raise IngestionError(
-            f"Unknown source type: '{source_type}'. Valid: {valid}"
-        )
+        raise IngestionError(f"Unknown source type: '{source_type}'. Valid: {valid}")
     return cls(data_dir=data_dir, registry=registry)  # type: ignore[no-any-return]
 
 
@@ -73,7 +71,9 @@ def run_ingestion(
             logger.warning(
                 "Dataset '%s' already ingested from '%s' "
                 "(ingestion_id=%s). Use --force to re-ingest.",
-                dataset_name, config["path"], existing.ingestion_id,
+                dataset_name,
+                config["path"],
+                existing.ingestion_id,
             )
             raise IngestionError(
                 f"Already ingested from '{config['path']}'. Use --force to re-ingest."

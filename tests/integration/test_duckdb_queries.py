@@ -26,20 +26,23 @@ from adp.storage.snapshot import SnapshotEngine
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_trades_csv(path: Path, n: int = 100) -> Path:
     """Create a deterministic trades CSV with tz-naive timestamp strings."""
     base_time = datetime(2026, 1, 15, 10, 0, 0)
     rows = []
     for i in range(n):
         ts = base_time.replace(second=i % 60, minute=i // 60)
-        rows.append({
-            "trade_id": f"T_{i:04d}",
-            "symbol": "BTCUSDT" if i % 2 == 0 else "ETHUSDT",
-            "price": 42000.0 + i * 10.0 + (i * 7 % 13),
-            "quantity": 0.1 + (i * 3 % 10) / 10.0,
-            "side": "buy" if i % 3 != 0 else "sell",
-            "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-        })
+        rows.append(
+            {
+                "trade_id": f"T_{i:04d}",
+                "symbol": "BTCUSDT" if i % 2 == 0 else "ETHUSDT",
+                "price": 42000.0 + i * 10.0 + (i * 7 % 13),
+                "quantity": 0.1 + (i * 3 % 10) / 10.0,
+                "side": "buy" if i % 3 != 0 else "sell",
+                "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            }
+        )
 
     df = pl.DataFrame(rows)
     df.write_csv(path)
@@ -76,11 +79,14 @@ def _setup_full_environment(
         data_dir=tmp_data_dir / "data",
         registry=registry,
     )
-    ing_result = strategy.ingest("test_trades", {
-        "path": str(csv_path),
-        "format": "csv",
-        "encoding": "utf-8",
-    })
+    ing_result = strategy.ingest(
+        "test_trades",
+        {
+            "path": str(csv_path),
+            "format": "csv",
+            "encoding": "utf-8",
+        },
+    )
 
     # Snapshot
     engine = SnapshotEngine(
@@ -88,7 +94,9 @@ def _setup_full_environment(
         registry=registry,
     )
     snapshot_id = engine.create_snapshot(
-        "test_trades", ds_config, [ing_result.ingestion_id],
+        "test_trades",
+        ds_config,
+        [ing_result.ingestion_id],
     )
 
     # Features
@@ -109,6 +117,7 @@ def _setup_full_environment(
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 class TestDuckDBQueries:
     """Integration tests for DuckDB SQL query interface."""
@@ -121,7 +130,9 @@ class TestDuckDBQueries:
     ) -> None:
         """SELECT * FROM dataset LIMIT 5 should return 5 rows."""
         registry, _snapshot_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         result = query_dataset(
@@ -144,7 +155,9 @@ class TestDuckDBQueries:
     ) -> None:
         """SELECT COUNT(*), AVG(price) should return valid aggregation."""
         registry, _snapshot_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         result = query_dataset(
@@ -166,7 +179,9 @@ class TestDuckDBQueries:
     ) -> None:
         """SELECT * FROM features LIMIT 5 should return 5 rows with feature columns."""
         registry, _snapshot_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         result = query_features(
@@ -189,7 +204,9 @@ class TestDuckDBQueries:
     ) -> None:
         """Verify return type is pl.DataFrame for both dataset and feature queries."""
         registry, _snapshot_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         ds_result = query_dataset(
@@ -215,7 +232,9 @@ class TestDuckDBQueries:
     ) -> None:
         """Querying a dataset that does not exist should raise an appropriate error."""
         registry, _snapshot_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         with pytest.raises(DatasetNotFoundError):
@@ -250,15 +269,21 @@ class TestDuckDBViewNameValidation:
     ) -> None:
         """Both 'dataset' and 'features' should be accepted as view names."""
         registry, _snap_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
         # These should not raise ValueError
         query_dataset(
-            "test_trades", "SELECT COUNT(*) FROM dataset", registry=registry,
+            "test_trades",
+            "SELECT COUNT(*) FROM dataset",
+            registry=registry,
         )
         query_features(
-            "test_trades", "basic_factors",
-            "SELECT COUNT(*) FROM features", registry=registry,
+            "test_trades",
+            "basic_factors",
+            "SELECT COUNT(*) FROM features",
+            registry=registry,
         )
 
 
@@ -274,11 +299,14 @@ class TestBuildBacktestMatrix:
     ) -> None:
         """build_backtest_matrix should add forward return columns."""
         registry, _snap_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         result = build_backtest_matrix(
-            "test_trades", "basic_factors",
+            "test_trades",
+            "basic_factors",
             forward_return_periods=[1, 5],
             price_column="price",
             sort_column="timestamp",
@@ -297,12 +325,15 @@ class TestBuildBacktestMatrix:
     ) -> None:
         """Should raise ValueError when price column doesn't exist."""
         registry, _snap_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         with pytest.raises(ValueError, match="Price column"):
             build_backtest_matrix(
-                "test_trades", "basic_factors",
+                "test_trades",
+                "basic_factors",
                 price_column="nonexistent_column",
                 registry=registry,
             )
@@ -315,12 +346,15 @@ class TestBuildBacktestMatrix:
     ) -> None:
         """Should raise ValueError when group column doesn't exist."""
         registry, _snap_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         with pytest.raises(ValueError, match="Group column"):
             build_backtest_matrix(
-                "test_trades", "basic_factors",
+                "test_trades",
+                "basic_factors",
                 price_column="price",
                 group_column="nonexistent_group",
                 registry=registry,
@@ -334,11 +368,14 @@ class TestBuildBacktestMatrix:
     ) -> None:
         """Forward returns should not bleed across symbol boundaries."""
         registry, _snap_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         result = build_backtest_matrix(
-            "test_trades", "basic_factors",
+            "test_trades",
+            "basic_factors",
             forward_return_periods=[1],
             price_column="price",
             sort_column="timestamp",
@@ -363,11 +400,14 @@ class TestBuildBacktestMatrix:
     ) -> None:
         """Verify forward return values are mathematically correct."""
         registry, _snap_id, _fsnap_id = _setup_full_environment(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         result = build_backtest_matrix(
-            "test_trades", "basic_factors",
+            "test_trades",
+            "basic_factors",
             forward_return_periods=[1],
             price_column="price",
             sort_column="timestamp",

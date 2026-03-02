@@ -54,16 +54,12 @@ class TestFileIngestionParquet:
 
 @pytest.mark.unit
 class TestFileIngestionErrors:
-    def test_missing_file(
-        self, tmp_data_dir: Path, in_memory_registry: MetadataRegistry
-    ) -> None:
+    def test_missing_file(self, tmp_data_dir: Path, in_memory_registry: MetadataRegistry) -> None:
         strategy = FileIngestionStrategy(tmp_data_dir, in_memory_registry)
         with pytest.raises(IngestionError, match="File not found"):
             strategy.ingest("test", {"path": "/nonexistent/file.csv", "format": "csv"})
 
-    def test_empty_file(
-        self, tmp_data_dir: Path, in_memory_registry: MetadataRegistry
-    ) -> None:
+    def test_empty_file(self, tmp_data_dir: Path, in_memory_registry: MetadataRegistry) -> None:
         in_memory_registry.register_dataset("test_empty", schema_hash="h")
         empty_csv = tmp_data_dir / "empty.csv"
         empty_csv.write_text("col_a,col_b\n")

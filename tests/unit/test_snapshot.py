@@ -54,6 +54,6 @@ class TestIDGeneration:
     def test_feature_snapshot_id_format(self, in_memory_registry: MetadataRegistry) -> None:
         """Feature snapshot ID: {dataset}_{featureset}_fsnap_{YYYYMMDD}_{seq:03d}."""
         fid = generate_feature_snapshot_id("test_ds", "basic_factors", in_memory_registry)
-        assert re.fullmatch(
-            r"test_ds_basic_factors_fsnap_20260601_\d{3}", fid
-        ), f"Bad format: {fid}"
+        assert re.fullmatch(r"test_ds_basic_factors_fsnap_20260601_\d{3}", fid), (
+            f"Bad format: {fid}"
+        )

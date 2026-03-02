@@ -32,27 +32,18 @@ def normalize_timezones(
         source_tz = col.source_timezone or "UTC"
 
         # Check if column already has timezone info
-        is_tz_aware = (
-            isinstance(col_dtype, pl.Datetime)
-            and col_dtype.time_zone is not None
-        )
+        is_tz_aware = isinstance(col_dtype, pl.Datetime) and col_dtype.time_zone is not None
 
         if is_tz_aware:
             # Already tz-aware: just convert to UTC
-            lf = lf.with_columns(
-                pl.col(col.name).dt.convert_time_zone("UTC")
-            )
+            lf = lf.with_columns(pl.col(col.name).dt.convert_time_zone("UTC"))
         elif source_tz == "UTC":
             # tz-naive, stamp as UTC
-            lf = lf.with_columns(
-                pl.col(col.name).dt.replace_time_zone("UTC")
-            )
+            lf = lf.with_columns(pl.col(col.name).dt.replace_time_zone("UTC"))
         else:
             # tz-naive: stamp with source tz then convert to UTC
             lf = lf.with_columns(
-                pl.col(col.name)
-                .dt.replace_time_zone(source_tz)
-                .dt.convert_time_zone("UTC")
+                pl.col(col.name).dt.replace_time_zone(source_tz).dt.convert_time_zone("UTC")
             )
     return lf
 
@@ -81,11 +72,7 @@ class NormalizationPipeline:
 
         # Step 3: Deduplication
         _proc = processing
-        steps.append(
-            lambda lf: deduplicate(
-                lf, _proc.dedup_keys, _proc.dedup_strategy.value
-            )
-        )
+        steps.append(lambda lf: deduplicate(lf, _proc.dedup_keys, _proc.dedup_strategy.value))
 
         return cls(steps)
 

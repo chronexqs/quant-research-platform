@@ -50,10 +50,7 @@ def compute_schema_hash(columns: list[dict[str, Any]]) -> str:
 
 def compute_schema_hash_from_defs(columns: list[ColumnDef]) -> str:
     """Compute schema hash from ColumnDef objects."""
-    col_dicts = [
-        {"name": c.name, "type": c.type.value, "nullable": c.nullable}
-        for c in columns
-    ]
+    col_dicts = [{"name": c.name, "type": c.type.value, "nullable": c.nullable} for c in columns]
     return compute_schema_hash(col_dicts)
 
 
@@ -94,17 +91,11 @@ def cast_dataframe(lf: pl.LazyFrame, columns: list[ColumnDef]) -> pl.LazyFrame:
             continue
 
         if col.type == ColumnType.datetime_ and actual_dtype == pl.Utf8():
-            cast_exprs.append(
-                pl.col(col.name).str.to_datetime(strict=False).alias(col.name)
-            )
+            cast_exprs.append(pl.col(col.name).str.to_datetime(strict=False).alias(col.name))
         elif col.type == ColumnType.date_ and actual_dtype == pl.Utf8():
-            cast_exprs.append(
-                pl.col(col.name).str.to_date(strict=False).alias(col.name)
-            )
+            cast_exprs.append(pl.col(col.name).str.to_date(strict=False).alias(col.name))
         else:
-            cast_exprs.append(
-                pl.col(col.name).cast(target_dtype).alias(col.name)
-            )
+            cast_exprs.append(pl.col(col.name).cast(target_dtype).alias(col.name))
     if cast_exprs:
         return lf.with_columns(cast_exprs)
     return lf
@@ -145,8 +136,7 @@ def validate_dataframe(
             count = null_counts[col.name][0]
             if count > 0:
                 raise SchemaValidationError(
-                    f"Column '{col.name}' has {count} null values "
-                    "but is not nullable"
+                    f"Column '{col.name}' has {count} null values but is not nullable"
                 )
 
     return lf

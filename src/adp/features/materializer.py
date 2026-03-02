@@ -62,9 +62,7 @@ class FeatureMaterialiser:
         if sort_col in schema_names:
             lf = lf.sort(sort_col)
         elif feature_set_def.sort_column is not None:
-            raise FeatureError(
-                f"Specified sort column '{sort_col}' not found in snapshot schema"
-            )
+            raise FeatureError(f"Specified sort column '{sort_col}' not found in snapshot schema")
 
         # Apply all feature strategies sequentially
         for feat in feature_set_def.features:
@@ -79,16 +77,8 @@ class FeatureMaterialiser:
         row_count = len(df)
 
         # Generate ID and paths
-        fsnap_id = generate_feature_snapshot_id(
-            dataset_name, feature_set_def.name, self.registry
-        )
-        storage_dir = (
-            self.data_dir
-            / "features"
-            / dataset_name
-            / feature_set_def.name
-            / fsnap_id
-        )
+        fsnap_id = generate_feature_snapshot_id(dataset_name, feature_set_def.name, self.registry)
+        storage_dir = self.data_dir / "features" / dataset_name / feature_set_def.name / fsnap_id
         storage_dir.mkdir(parents=True, exist_ok=True)
 
         # Write Parquet
@@ -96,17 +86,20 @@ class FeatureMaterialiser:
 
         # Write metadata JSON
         feature_columns = [f.name for f in feature_set_def.features]
-        write_metadata_json(storage_dir, {
-            "feature_snapshot_id": fsnap_id,
-            "feature_set": feature_set_def.name,
-            "dataset_name": dataset_name,
-            "dataset_snapshot_id": snapshot_id,
-            "feature_version": feature_set_def.version,
-            "definition_hash": feature_set_def.definition_hash,
-            "feature_columns": feature_columns,
-            "row_count": row_count,
-            "created_at": datetime.now(UTC).isoformat(),
-        })
+        write_metadata_json(
+            storage_dir,
+            {
+                "feature_snapshot_id": fsnap_id,
+                "feature_set": feature_set_def.name,
+                "dataset_name": dataset_name,
+                "dataset_snapshot_id": snapshot_id,
+                "feature_version": feature_set_def.version,
+                "definition_hash": feature_set_def.definition_hash,
+                "feature_columns": feature_columns,
+                "row_count": row_count,
+                "created_at": datetime.now(UTC).isoformat(),
+            },
+        )
 
         # Register feature definition (idempotent)
         self.registry.register_feature_definition(
@@ -132,6 +125,10 @@ class FeatureMaterialiser:
 
         logger.info(
             "Materialised feature set '%s' for %s (%d rows, %d features) -> %s",
-            feature_set_def.name, dataset_name, row_count, len(feature_columns), fsnap_id,
+            feature_set_def.name,
+            dataset_name,
+            row_count,
+            len(feature_columns),
+            fsnap_id,
         )
         return fsnap_id

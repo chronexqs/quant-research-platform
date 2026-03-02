@@ -28,20 +28,23 @@ from adp.storage.snapshot import SnapshotEngine
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_trades_csv(path: Path, n: int = 100) -> Path:
     """Create a deterministic trades CSV with tz-naive timestamp strings."""
     base_time = datetime(2026, 1, 15, 10, 0, 0)
     rows = []
     for i in range(n):
         ts = base_time.replace(second=i % 60, minute=i // 60)
-        rows.append({
-            "trade_id": f"T_{i:04d}",
-            "symbol": "BTCUSDT" if i % 2 == 0 else "ETHUSDT",
-            "price": 42000.0 + i * 10.0 + (i * 7 % 13),
-            "quantity": 0.1 + (i * 3 % 10) / 10.0,
-            "side": "buy" if i % 3 != 0 else "sell",
-            "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-        })
+        rows.append(
+            {
+                "trade_id": f"T_{i:04d}",
+                "symbol": "BTCUSDT" if i % 2 == 0 else "ETHUSDT",
+                "price": 42000.0 + i * 10.0 + (i * 7 % 13),
+                "quantity": 0.1 + (i * 3 % 10) / 10.0,
+                "side": "buy" if i % 3 != 0 else "sell",
+                "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            }
+        )
 
     df = pl.DataFrame(rows)
     df.write_csv(path)
@@ -79,11 +82,14 @@ def _setup_full_snapshot(
         data_dir=tmp_data_dir / "data",
         registry=registry,
     )
-    result = strategy.ingest("test_trades", {
-        "path": str(csv_path),
-        "format": "csv",
-        "encoding": "utf-8",
-    })
+    result = strategy.ingest(
+        "test_trades",
+        {
+            "path": str(csv_path),
+            "format": "csv",
+            "encoding": "utf-8",
+        },
+    )
 
     # Snapshot
     engine = SnapshotEngine(
@@ -99,6 +105,7 @@ def _setup_full_snapshot(
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.integration
 class TestFeaturePipeline:
     """Integration tests for the feature materialisation pipeline."""
@@ -111,7 +118,9 @@ class TestFeaturePipeline:
     ) -> None:
         """Create snapshot, build features, verify feature Parquet exists."""
         registry, _snapshot_id, features_yaml = _setup_full_snapshot(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         features_cfg = load_features_config(features_yaml)
@@ -140,7 +149,9 @@ class TestFeaturePipeline:
     ) -> None:
         """Verify feature_definitions and feature_snapshots tables are populated."""
         registry, snapshot_id, features_yaml = _setup_full_snapshot(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         features_cfg = load_features_config(features_yaml)
@@ -181,7 +192,9 @@ class TestFeaturePipeline:
     ) -> None:
         """Read feature Parquet, verify columns include feature names."""
         registry, _snapshot_id, features_yaml = _setup_full_snapshot(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         features_cfg = load_features_config(features_yaml)
@@ -212,7 +225,9 @@ class TestFeaturePipeline:
     ) -> None:
         """Check all expected feature columns exist in the output DataFrame."""
         registry, _snapshot_id, features_yaml = _setup_full_snapshot(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         features_cfg = load_features_config(features_yaml)
@@ -244,7 +259,9 @@ class TestFeaturePipeline:
     ) -> None:
         """Build features with explicit snapshot_id targeting a specific snapshot."""
         registry, snap1_id, features_yaml = _setup_full_snapshot(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         # Create a second ingestion and snapshot with fewer rows
@@ -257,11 +274,14 @@ class TestFeaturePipeline:
             data_dir=tmp_data_dir / "data",
             registry=registry,
         )
-        result2 = strategy.ingest("test_trades", {
-            "path": str(csv2),
-            "format": "csv",
-            "encoding": "utf-8",
-        })
+        result2 = strategy.ingest(
+            "test_trades",
+            {
+                "path": str(csv2),
+                "format": "csv",
+                "encoding": "utf-8",
+            },
+        )
 
         engine = SnapshotEngine(
             data_dir=tmp_data_dir / "data",
@@ -295,7 +315,9 @@ class TestFeaturePipeline:
     ) -> None:
         """Build two different feature sets from the same snapshot."""
         registry, _snapshot_id, features_yaml = _setup_full_snapshot(
-            tmp_data_dir, sample_datasets_yaml, sample_features_yaml,
+            tmp_data_dir,
+            sample_datasets_yaml,
+            sample_features_yaml,
         )
 
         features_cfg = load_features_config(features_yaml)

@@ -31,6 +31,7 @@ _MOCK_DATA_DIR = _PROJECT_ROOT / "data" / "mock_data"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
     """Create an isolated directory structure."""
     data_dir = tmp_path / "data"
@@ -56,7 +57,8 @@ def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
     csv_path = data_dir / "mock_data" / "ohlcv_btcusdt_1s.csv"
 
     datasets_yaml = config_dir / "datasets.yaml"
-    datasets_yaml.write_text(textwrap.dedent(f"""\
+    datasets_yaml.write_text(
+        textwrap.dedent(f"""\
         datasets:
           ohlcv_btcusdt:
             description: "BTCUSDT 1-second OHLCV candles"
@@ -92,10 +94,12 @@ def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
               dedup_keys: [timestamp, symbol]
               dedup_strategy: keep_last
               normalization_version: "1.0"
-    """))
+    """)
+    )
 
     features_yaml = config_dir / "features.yaml"
-    features_yaml.write_text(textwrap.dedent("""\
+    features_yaml.write_text(
+        textwrap.dedent("""\
         ohlcv_btcusdt:
           candle_factors:
             version: 1
@@ -112,7 +116,8 @@ def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
               - name: close_returns
                 type: returns
                 column: close
-    """))
+    """)
+    )
 
     return datasets_yaml, features_yaml
 
@@ -138,7 +143,9 @@ def _ingest_and_snapshot(
 
     engine = SnapshotEngine(data_dir=data_dir, registry=registry)
     snapshot_id = engine.create_snapshot(
-        dataset_name, ds_config, [ing_result.ingestion_id],
+        dataset_name,
+        ds_config,
+        [ing_result.ingestion_id],
     )
     return ing_result.ingestion_id, snapshot_id
 
@@ -165,6 +172,7 @@ def _build_features(
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.e2e
 class TestReproducibility:
     """End-to-end reproducibility tests."""
@@ -189,7 +197,10 @@ class TestReproducibility:
 
         # Ingest once
         ing_id, snap1_id = _ingest_and_snapshot(
-            "ohlcv_btcusdt", data_dir, config_dir, registry,
+            "ohlcv_btcusdt",
+            data_dir,
+            config_dir,
+            registry,
         )
 
         # Create second snapshot from the SAME raw ingestion
@@ -230,16 +241,27 @@ class TestReproducibility:
         )
 
         _, snapshot_id = _ingest_and_snapshot(
-            "ohlcv_btcusdt", data_dir, config_dir, registry,
+            "ohlcv_btcusdt",
+            data_dir,
+            config_dir,
+            registry,
         )
 
         # Build features twice from the same snapshot
         fsnap_id1 = _build_features(
-            "ohlcv_btcusdt", "candle_factors", data_dir, config_dir, registry,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            data_dir,
+            config_dir,
+            registry,
             snapshot_id=snapshot_id,
         )
         fsnap_id2 = _build_features(
-            "ohlcv_btcusdt", "candle_factors", data_dir, config_dir, registry,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            data_dir,
+            config_dir,
+            registry,
             snapshot_id=snapshot_id,
         )
 
@@ -274,17 +296,26 @@ class TestReproducibility:
         )
 
         _, snapshot_id = _ingest_and_snapshot(
-            "ohlcv_btcusdt", data_dir, config_dir, registry1,
+            "ohlcv_btcusdt",
+            data_dir,
+            config_dir,
+            registry1,
         )
         fsnap_id = _build_features(
-            "ohlcv_btcusdt", "candle_factors", data_dir, config_dir, registry1,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            data_dir,
+            config_dir,
+            registry1,
             snapshot_id=snapshot_id,
         )
 
         # Load data in session 1
         ds_df_session1 = load_dataset("ohlcv_btcusdt", registry=registry1).collect()
         feat_df_session1 = load_features(
-            "ohlcv_btcusdt", "candle_factors", registry=registry1,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            registry=registry1,
         ).collect()
 
         # Close session 1
@@ -295,7 +326,9 @@ class TestReproducibility:
 
         ds_df_session2 = load_dataset("ohlcv_btcusdt", registry=registry2).collect()
         feat_df_session2 = load_features(
-            "ohlcv_btcusdt", "candle_factors", registry=registry2,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            registry=registry2,
         ).collect()
 
         # Verify data matches across sessions

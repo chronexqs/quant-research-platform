@@ -31,6 +31,7 @@ _MOCK_DATA_DIR = _PROJECT_ROOT / "data" / "mock_data"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
     """Create an isolated directory structure."""
     data_dir = tmp_path / "data"
@@ -56,7 +57,8 @@ def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
     csv_path = data_dir / "mock_data" / "ohlcv_btcusdt_1s.csv"
 
     datasets_yaml = config_dir / "datasets.yaml"
-    datasets_yaml.write_text(textwrap.dedent(f"""\
+    datasets_yaml.write_text(
+        textwrap.dedent(f"""\
         datasets:
           ohlcv_btcusdt:
             description: "BTCUSDT 1-second OHLCV candles"
@@ -92,10 +94,12 @@ def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
               dedup_keys: [timestamp, symbol]
               dedup_strategy: keep_last
               normalization_version: "1.0"
-    """))
+    """)
+    )
 
     features_yaml = config_dir / "features.yaml"
-    features_yaml.write_text(textwrap.dedent("""\
+    features_yaml.write_text(
+        textwrap.dedent("""\
         ohlcv_btcusdt:
           candle_factors:
             version: 1
@@ -112,7 +116,8 @@ def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
               - name: close_returns
                 type: returns
                 column: close
-    """))
+    """)
+    )
 
     return datasets_yaml, features_yaml
 
@@ -188,6 +193,7 @@ def _build_features(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 class TestSnapshotIsolation:
@@ -267,13 +273,18 @@ class TestSnapshotIsolation:
 
         # Load first snapshot via API and capture data
         df_snap1 = load_dataset(
-            "ohlcv_btcusdt", snapshot_id=snap1_id, registry=registry,
+            "ohlcv_btcusdt",
+            snapshot_id=snap1_id,
+            registry=registry,
         ).collect()
 
         # Build features from first snapshot
         fsnap1_id = _build_features(data_dir, config_dir, registry, snapshot_id=snap1_id)
         df_feat1 = load_features(
-            "ohlcv_btcusdt", "candle_factors", snapshot_id=fsnap1_id, registry=registry,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            snapshot_id=fsnap1_id,
+            registry=registry,
         ).collect()
 
         # Second ingest + snapshot + features
@@ -283,7 +294,9 @@ class TestSnapshotIsolation:
 
         # Verify old snapshot is still loadable via explicit snapshot_id
         df_snap1_after = load_dataset(
-            "ohlcv_btcusdt", snapshot_id=snap1_id, registry=registry,
+            "ohlcv_btcusdt",
+            snapshot_id=snap1_id,
+            registry=registry,
         ).collect()
         assert df_snap1.shape == df_snap1_after.shape
         assert df_snap1.equals(df_snap1_after), (
@@ -292,7 +305,10 @@ class TestSnapshotIsolation:
 
         # Verify old feature snapshot is still loadable
         df_feat1_after = load_features(
-            "ohlcv_btcusdt", "candle_factors", snapshot_id=fsnap1_id, registry=registry,
+            "ohlcv_btcusdt",
+            "candle_factors",
+            snapshot_id=fsnap1_id,
+            registry=registry,
         ).collect()
         assert df_feat1.shape == df_feat1_after.shape
         assert df_feat1.equals(df_feat1_after), (

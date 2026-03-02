@@ -41,9 +41,7 @@ def _get_registry(metadata_dir: Path) -> MetadataRegistry:
 def init(
     config_dir: Path = typer.Option(Path("config"), help="Config directory"),
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """Initialize the ADP platform directory structure and metadata database."""
     for subdir in ["raw", "staged", "normalized", "features"]:
@@ -66,9 +64,7 @@ def ingest(
     force: bool = typer.Option(False, help="Force re-ingestion"),
     config_dir: Path = typer.Option(Path("config"), help="Config directory"),
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """Ingest data for a dataset."""
     from adp.config import load_datasets_config
@@ -93,9 +89,7 @@ def ingest(
 
         # Ensure dataset is registered
         if registry.get_dataset(dataset_name) is None:
-            schema_hash = compute_schema_hash_from_defs(
-                ds_config.schema_def.columns
-            )
+            schema_hash = compute_schema_hash_from_defs(ds_config.schema_def.columns)
             registry.register_dataset(
                 dataset_name=dataset_name,
                 schema_hash=schema_hash,
@@ -111,9 +105,7 @@ def ingest(
             source_override=source,
             path_override=str(path) if path else None,
         )
-        typer.echo(
-            f"Ingested {result.row_count} rows -> {result.ingestion_id}"
-        )
+        typer.echo(f"Ingested {result.row_count} rows -> {result.ingestion_id}")
 
     except ADPError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -128,9 +120,7 @@ def snapshot_create(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
     config_dir: Path = typer.Option(Path("config"), help="Config directory"),
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """Create a normalized snapshot from the latest raw ingestion."""
     from adp.config import load_datasets_config
@@ -152,16 +142,13 @@ def snapshot_create(
         ingestions = registry.list_ingestions(dataset_name)
         if not ingestions:
             typer.echo(
-                f"Error: No ingestions for '{dataset_name}'. "
-                "Run 'adp ingest' first.",
+                f"Error: No ingestions for '{dataset_name}'. Run 'adp ingest' first.",
                 err=True,
             )
             raise typer.Exit(1) from None
 
         ingestion_ids = [ing.ingestion_id for ing in ingestions]
-        snapshot_id = engine.create_snapshot(
-            dataset_name, ds_config, ingestion_ids
-        )
+        snapshot_id = engine.create_snapshot(dataset_name, ds_config, ingestion_ids)
         typer.echo(f"Created snapshot: {snapshot_id}")
 
     except ADPError as e:
@@ -172,9 +159,7 @@ def snapshot_create(
 @snapshot_app.command("list")
 def snapshot_list(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """List all snapshots for a dataset."""
     registry = _get_registry(metadata_dir)
@@ -186,19 +171,14 @@ def snapshot_list(
         ds = registry.get_dataset(dataset_name)
         is_current = ds and ds.current_snapshot == snap.snapshot_id
         tag = " (current)" if is_current else ""
-        typer.echo(
-            f"  {snap.snapshot_id}  rows={snap.row_count}  "
-            f"created={snap.created_at}{tag}"
-        )
+        typer.echo(f"  {snap.snapshot_id}  rows={snap.row_count}  created={snap.created_at}{tag}")
 
 
 @snapshot_app.command("show")
 def snapshot_show(
     snapshot_id: str = typer.Argument(..., help="Snapshot ID"),
     lineage: bool = typer.Option(False, help="Show lineage"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """Show details of a specific snapshot."""
     registry = _get_registry(metadata_dir)
@@ -230,14 +210,10 @@ def snapshot_show(
 def features_build(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
     feature_set: str = typer.Argument(..., help="Feature set name"),
-    snapshot: str | None = typer.Option(
-        None, help="Specific snapshot ID"
-    ),
+    snapshot: str | None = typer.Option(None, help="Specific snapshot ID"),
     config_dir: Path = typer.Option(Path("config"), help="Config directory"),
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """Build features for a dataset."""
     from adp.config import load_features_config
@@ -254,8 +230,7 @@ def features_build(
             raise typer.Exit(1) from None
         if feature_set not in features_config[dataset_name]:
             typer.echo(
-                f"Error: Feature set '{feature_set}' not found "
-                f"for '{dataset_name}'.",
+                f"Error: Feature set '{feature_set}' not found for '{dataset_name}'.",
                 err=True,
             )
             avail = sorted(features_config[dataset_name].keys())
@@ -278,9 +253,7 @@ def features_build(
 @features_app.command("list")
 def features_list(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """List feature sets for a dataset."""
     registry = _get_registry(metadata_dir)
@@ -293,27 +266,20 @@ def features_list(
         key = (d.feature_name, d.version)
         if key not in seen:
             seen.add(key)
-            typer.echo(
-                f"  {d.feature_name} v{d.version}  "
-                f"hash={d.definition_hash[:16]}..."
-            )
+            typer.echo(f"  {d.feature_name} v{d.version}  hash={d.definition_hash[:16]}...")
 
 
 @features_app.command("show")
 def features_show(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
     feature_set: str = typer.Argument(..., help="Feature set name"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
     """Show feature set details and snapshots."""
     registry = _get_registry(metadata_dir)
     snapshots = registry.list_feature_snapshots(dataset_name, feature_set)
     if not snapshots:
-        typer.echo(
-            f"No snapshots for '{feature_set}' on '{dataset_name}'."
-        )
+        typer.echo(f"No snapshots for '{feature_set}' on '{dataset_name}'.")
         return
     for fs in snapshots:
         typer.echo(
@@ -327,9 +293,7 @@ def features_load(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
     feature_set: str = typer.Argument(..., help="Feature set name"),
     head: int = typer.Option(10, help="Number of rows to show"),
-    metadata_dir: Path = typer.Option(
-        Path("metadata"), help="Metadata directory"
-    ),
+    metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
 ) -> None:
     """Load and display feature data."""
@@ -337,9 +301,7 @@ def features_load(
 
     try:
         registry = _get_registry(metadata_dir)
-        lf = load_feature_snapshot(
-            dataset_name, feature_set, registry=registry
-        )
+        lf = load_feature_snapshot(dataset_name, feature_set, registry=registry)
         df = lf.head(head).collect()
         typer.echo(str(df))
     except ADPError as e:

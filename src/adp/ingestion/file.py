@@ -63,7 +63,10 @@ class FileIngestionStrategy:
 
         logger.info(
             "Ingested %s from %s (%d rows) -> %s",
-            dataset_name, source_path, row_count, raw_path,
+            dataset_name,
+            source_path,
+            row_count,
+            raw_path,
         )
 
         return IngestionResult(

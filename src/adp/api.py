@@ -117,16 +117,12 @@ def query_features(
     else:
         record = reg.get_latest_feature_snapshot(feature_set, dataset)
     if not record:
-        raise FeatureSetNotFoundError(
-            f"Feature set '{feature_set}' not found for '{dataset}'"
-        )
+        raise FeatureSetNotFoundError(f"Feature set '{feature_set}' not found for '{dataset}'")
 
     return _run_duckdb_query(record.storage_path, sql, "features")
 
 
-def _run_duckdb_query(
-    storage_path: str, sql: str, view_name: str
-) -> pl.DataFrame:
+def _run_duckdb_query(storage_path: str, sql: str, view_name: str) -> pl.DataFrame:
     """Execute a SQL query over Parquet data via DuckDB."""
     if view_name not in ("dataset", "features"):
         raise ValueError(f"Invalid view name: {view_name!r}")
@@ -134,9 +130,7 @@ def _run_duckdb_query(
     escaped_path = parquet_path.replace("'", "''")
     conn = duckdb.connect(":memory:")
     try:
-        conn.execute(
-            f"CREATE VIEW {view_name} AS SELECT * FROM read_parquet('{escaped_path}')"
-        )
+        conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM read_parquet('{escaped_path}')")
         return conn.execute(sql).pl()
     finally:
         conn.close()
@@ -151,19 +145,25 @@ def list_datasets(
     reg = registry or _get_registry(registry_path)
     records = reg.list_datasets()
     if not records:
-        return pl.DataFrame({
-            "dataset_name": [], "current_snapshot": [],
-            "schema_hash": [], "created_at": [],
-        })
-    return pl.DataFrame([
-        {
-            "dataset_name": r.dataset_name,
-            "current_snapshot": r.current_snapshot,
-            "schema_hash": r.schema_hash,
-            "created_at": str(r.created_at),
-        }
-        for r in records
-    ])
+        return pl.DataFrame(
+            {
+                "dataset_name": [],
+                "current_snapshot": [],
+                "schema_hash": [],
+                "created_at": [],
+            }
+        )
+    return pl.DataFrame(
+        [
+            {
+                "dataset_name": r.dataset_name,
+                "current_snapshot": r.current_snapshot,
+                "schema_hash": r.schema_hash,
+                "created_at": str(r.created_at),
+            }
+            for r in records
+        ]
+    )
 
 
 def list_snapshots(
@@ -176,19 +176,25 @@ def list_snapshots(
     reg = registry or _get_registry(registry_path)
     records = reg.list_snapshots(dataset)
     if not records:
-        return pl.DataFrame({
-            "snapshot_id": [], "row_count": [],
-            "schema_hash": [], "created_at": [],
-        })
-    return pl.DataFrame([
-        {
-            "snapshot_id": r.snapshot_id,
-            "row_count": r.row_count,
-            "schema_hash": r.schema_hash,
-            "created_at": str(r.created_at),
-        }
-        for r in records
-    ])
+        return pl.DataFrame(
+            {
+                "snapshot_id": [],
+                "row_count": [],
+                "schema_hash": [],
+                "created_at": [],
+            }
+        )
+    return pl.DataFrame(
+        [
+            {
+                "snapshot_id": r.snapshot_id,
+                "row_count": r.row_count,
+                "schema_hash": r.schema_hash,
+                "created_at": str(r.created_at),
+            }
+            for r in records
+        ]
+    )
 
 
 def list_feature_sets(
@@ -201,19 +207,25 @@ def list_feature_sets(
     reg = registry or _get_registry(registry_path)
     records = reg.list_feature_definitions(dataset)
     if not records:
-        return pl.DataFrame({
-            "feature_name": [], "version": [],
-            "definition_hash": [], "created_at": [],
-        })
-    return pl.DataFrame([
-        {
-            "feature_name": r.feature_name,
-            "version": r.version,
-            "definition_hash": r.definition_hash,
-            "created_at": str(r.created_at),
-        }
-        for r in records
-    ])
+        return pl.DataFrame(
+            {
+                "feature_name": [],
+                "version": [],
+                "definition_hash": [],
+                "created_at": [],
+            }
+        )
+    return pl.DataFrame(
+        [
+            {
+                "feature_name": r.feature_name,
+                "version": r.version,
+                "definition_hash": r.definition_hash,
+                "created_at": str(r.created_at),
+            }
+            for r in records
+        ]
+    )
 
 
 def build_backtest_matrix(
@@ -244,13 +256,9 @@ def build_backtest_matrix(
     schema_names = features_lf.collect_schema().names()
 
     if price_column not in schema_names:
-        raise ValueError(
-            f"Price column '{price_column}' not found in feature set columns"
-        )
+        raise ValueError(f"Price column '{price_column}' not found in feature set columns")
     if group_column and group_column not in schema_names:
-        raise ValueError(
-            f"Group column '{group_column}' not found in feature set columns"
-        )
+        raise ValueError(f"Group column '{group_column}' not found in feature set columns")
 
     # Ensure temporal ordering (with group if multi-asset)
     if sort_column in schema_names:
@@ -264,11 +272,11 @@ def build_backtest_matrix(
         shift_expr = price.shift(-period)
         if group_column:
             shift_expr = shift_expr.over(group_column)
-        fwd_return = pl.when(price.abs() > 1e-15).then(
-            shift_expr / price - 1.0
-        ).otherwise(pl.lit(None, dtype=pl.Float64))
-        features_lf = features_lf.with_columns(
-            fwd_return.alias(f"fwd_return_{period}")
+        fwd_return = (
+            pl.when(price.abs() > 1e-15)
+            .then(shift_expr / price - 1.0)
+            .otherwise(pl.lit(None, dtype=pl.Float64))
         )
+        features_lf = features_lf.with_columns(fwd_return.alias(f"fwd_return_{period}"))
 
     return features_lf

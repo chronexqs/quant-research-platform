@@ -18,6 +18,7 @@ from adp.metadata.registry import MetadataRegistry
 
 # ── Helpers ──────────────────────────────────────────────────
 
+
 def _register_dataset(reg: MetadataRegistry, name: str = "test_ds") -> DatasetRecord:
     return reg.register_dataset(name, schema_hash="abc123", description="test")
 
@@ -53,6 +54,7 @@ def _create_snapshot(
 
 # ── Init ─────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestMetadataRegistryInit:
     def test_init_creates_tables(self, in_memory_registry: MetadataRegistry) -> None:
@@ -83,6 +85,7 @@ class TestMetadataRegistryInit:
 
 
 # ── Datasets ─────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestDatasetOperations:
@@ -116,6 +119,7 @@ class TestDatasetOperations:
 
 # ── Ingestions ───────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestIngestionOperations:
     def test_log_ingestion(self, in_memory_registry: MetadataRegistry) -> None:
@@ -131,6 +135,7 @@ class TestIngestionOperations:
 
 
 # ── Snapshots ────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestSnapshotOperations:
@@ -150,6 +155,7 @@ class TestSnapshotOperations:
 
 
 # ── Lineage ──────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestLineageOperations:
@@ -176,6 +182,7 @@ class TestLineageOperations:
 
 # ── Transaction rollback ─────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestTransactions:
     def test_transaction_rollback_on_error(self, in_memory_registry: MetadataRegistry) -> None:
@@ -185,7 +192,15 @@ class TestTransactions:
                 cur.execute(
                     "INSERT INTO snapshots (snapshot_id, dataset_name, schema_hash, normalization_version, row_count, storage_path, created_at) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    ("rollback_snap", "test_ds", "abc", "1.0", 10, "/tmp", "2026-01-01T00:00:00+00:00"),
+                    (
+                        "rollback_snap",
+                        "test_ds",
+                        "abc",
+                        "1.0",
+                        10,
+                        "/tmp",
+                        "2026-01-01T00:00:00+00:00",
+                    ),
                 )
                 raise RuntimeError("Force rollback")
         except RuntimeError:
@@ -195,6 +210,7 @@ class TestTransactions:
 
 
 # ── Feature definitions ──────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestFeatureDefinitionOperations:
@@ -239,6 +255,7 @@ class TestFeatureDefinitionOperations:
 
 
 # ── Feature snapshots ────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestFeatureSnapshotOperations:
