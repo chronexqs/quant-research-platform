@@ -20,9 +20,20 @@ from adp.processing.schema import (
 
 
 def _col(name: str, tp: str, nullable: bool = False) -> ColumnDef:
+    """Build a ``ColumnDef`` from shorthand arguments.
+
+    Args:
+        name: Column name.
+        tp: Column type string (e.g. ``"float"``, ``"str"``).
+        nullable: Whether the column accepts null values.
+
+    Returns:
+        A ``ColumnDef`` instance suitable for schema tests.
+    """
     return ColumnDef(name=name, type=ColumnType(tp), nullable=nullable)
 
 
+# Minimal two-column schema used across hash and validation tests.
 BASIC_COLS = [
     {"name": "price", "type": "float", "nullable": False},
     {"name": "symbol", "type": "str", "nullable": False},

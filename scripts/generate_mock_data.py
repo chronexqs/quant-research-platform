@@ -17,6 +17,10 @@ def generate_ohlcv() -> list[dict[str, str]]:
     """Generate 3,600 OHLCV rows for BTCUSDT — 1-second bars with ms-precision timestamps.
 
     Price walk: sine wave (period ~15min) + linear drift from 42,150.00.
+
+    Returns:
+        List of dicts with keys: timestamp, symbol, open, high, low, close, volume.
+        All values are formatted strings suitable for direct CSV serialization.
     """
     rows: list[dict[str, str]] = []
     base_time = datetime(2026, 1, 15, 10, 0, 0)
@@ -50,7 +54,16 @@ def generate_ohlcv() -> list[dict[str, str]]:
 
 
 def generate_rfq_events() -> list[dict[str, str]]:
-    """Generate 20 RFQ lifecycles with 2-4 events each (~60 rows)."""
+    """Generate 20 RFQ lifecycles with 2-4 events each (~60 rows).
+
+    Each lifecycle follows the sequence: requested -> quoted -> accepted/rejected.
+    Counterparties rotate round-robin across four market makers.
+
+    Returns:
+        List of dicts with keys: event_id, rfq_id, instrument, side,
+        requested_qty, counterparty, timestamp, status, quoted_price.
+        Contains ~60 rows (3 events per RFQ x 20 RFQs).
+    """
     counterparties = ["citadel", "jump", "wintermute", "flow_traders"]
     instruments = ["BTCUSDT", "BTCUSDT", "ETHUSDT", "BTCUSDT",
                    "ETHUSDT", "BTCUSDT", "BTCUSDT", "ETHUSDT",
@@ -65,7 +78,8 @@ def generate_rfq_events() -> list[dict[str, str]]:
                   2.0, 0.75, 8.0, 1.5, 3.0,
                   0.1, 4.0, 0.5, 2.5, 1.0,
                   6.0, 0.3, 7.0, 1.0, 0.8]
-    # 14 accepted, 6 rejected (indices 3, 7, 11, 14, 17, 19 are rejected)
+    # Rejection pattern: 6 of 20 RFQs are rejected (30% rejection rate).
+    # Indices chosen to spread rejections across counterparties and instruments.
     rejected_indices = {3, 7, 11, 14, 17, 19}
 
     base_prices_btc = [42150.0 + i * 5.0 for i in range(20)]
@@ -137,7 +151,20 @@ def generate_rfq_events() -> list[dict[str, str]]:
 
 
 def generate_trade_records(rfq_events: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Generate trade records from accepted RFQs."""
+    """Generate trade records from accepted RFQs.
+
+    Each accepted RFQ produces exactly one trade with deterministic slippage
+    and a T+2 settlement date (skipping weekends).
+
+    Args:
+        rfq_events: Full list of RFQ event dicts as produced by
+            :func:`generate_rfq_events`. Only rows with status ``"accepted"``
+            are used.
+
+    Returns:
+        List of dicts with keys: trade_id, rfq_id, instrument, side, price,
+        quantity, counterparty, execution_timestamp, settlement_date.
+    """
     accepted = [e for e in rfq_events if e["status"] == "accepted"]
     rows: list[dict[str, str]] = []
 
@@ -185,6 +212,12 @@ def generate_funding_rates() -> list[dict[str, str]]:
     """Generate 180 deterministic 8-hour funding rate snapshots for BTCUSDT.
 
     60 days x 3 snapshots/day = 180 rows.
+
+    Returns:
+        List of dicts with keys: timestamp, symbol, funding_rate, mark_price,
+        index_price. Funding rate oscillates around 0.01% with a ~30-day
+        sinusoidal cycle; mark and index prices drift upward with a small
+        deterministic basis between them.
     """
     rows: list[dict[str, str]] = []
     base_time = datetime(2026, 1, 15, 0, 0, 0)
@@ -217,7 +250,13 @@ def generate_funding_rates() -> list[dict[str, str]]:
 
 
 def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
-    """Write rows to CSV."""
+    """Write rows to a CSV file, creating parent directories as needed.
+
+    Args:
+        path: Destination file path. Parent directories are created if absent.
+        rows: Non-empty list of dicts sharing the same keys. The keys of
+            the first dict are used as the CSV header row.
+    """
     if not rows:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -229,6 +268,7 @@ def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
 
 
 def main() -> None:
+    """Generate all mock datasets and write them to ``data/mock_data/``."""
     print("Generating mock data...")
 
     ohlcv = generate_ohlcv()

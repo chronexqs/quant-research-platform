@@ -19,14 +19,50 @@ logger = logging.getLogger(__name__)
 
 
 class FileIngestionStrategy:
-    """Ingest data from local files (CSV, JSON, Parquet, TXT)."""
+    """Ingest data from local files (CSV, JSON, Parquet, TXT).
+
+    Reads a file from the local filesystem, converts it to Parquet for
+    uniform downstream processing, and logs the event in the metadata
+    registry.
+
+    Attributes:
+        data_dir: Root directory under which raw Parquet snapshots are
+            stored (``<data_dir>/raw/<dataset>/``).
+        registry: Metadata registry for recording ingestion events and
+            generating unique ingestion IDs.
+    """
 
     def __init__(self, data_dir: Path, registry: MetadataRegistry) -> None:
         self.data_dir = data_dir
         self.registry = registry
 
     def ingest(self, dataset_name: str, config: dict[str, Any]) -> IngestionResult:
-        """Read a local file and store as raw Parquet."""
+        """Read a local file and store its contents as a raw Parquet snapshot.
+
+        The file format is auto-detected from the extension when not
+        explicitly provided in *config*. For Parquet sources the file is
+        copied directly; all other formats are read into a Polars
+        DataFrame and then serialized to Parquet.
+
+        Args:
+            dataset_name: Logical dataset name used for directory layout
+                and metadata.
+            config: Configuration dict with the following keys:
+
+                - ``"path"`` (str): Path to the source file (required).
+                - ``"format"`` (str | None): Explicit format override
+                  (``"csv"``, ``"json"``, ``"parquet"``, ``"txt"``).
+                - ``"encoding"`` (str): Character encoding for text
+                  formats (default ``"utf-8"``).
+
+        Returns:
+            An ``IngestionResult`` with the generated ingestion ID,
+            output path, row count, and timestamp.
+
+        Raises:
+            IngestionError: If the source file does not exist, is empty,
+                or cannot be read.
+        """
         source_path = Path(config.get("path", ""))
         if not source_path.exists():
             raise IngestionError(f"File not found: {source_path}")
@@ -79,7 +115,22 @@ class FileIngestionStrategy:
         )
 
     def _read_file(self, path: Path, fmt: str, encoding: str) -> pl.DataFrame:
-        """Read a file into a Polars DataFrame based on format."""
+        """Read a file into a Polars DataFrame based on its format.
+
+        Args:
+            path: Filesystem path to the source file.
+            fmt: File format identifier (``"csv"``, ``"json"``,
+                ``"parquet"``, or ``"txt"``). ``"txt"`` is treated as
+                tab-separated CSV.
+            encoding: Character encoding for text-based formats.
+
+        Returns:
+            A ``pl.DataFrame`` containing the file's data.
+
+        Raises:
+            IngestionError: If the format is unsupported or reading
+                fails for any reason.
+        """
         try:
             if fmt == "csv":
                 return pl.read_csv(path, encoding=encoding, infer_schema_length=10000)

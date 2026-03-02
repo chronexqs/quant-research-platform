@@ -18,7 +18,18 @@ logger = logging.getLogger(__name__)
 
 
 class FeatureMaterialiser:
-    """Materialise features from dataset snapshots."""
+    """Orchestrates feature computation from normalized dataset snapshots.
+
+    Loads a dataset snapshot, applies each feature strategy sequentially,
+    persists the enriched DataFrame to Parquet, registers the feature
+    definition and snapshot in the metadata registry, and records lineage
+    back to the source dataset snapshot.
+
+    Attributes:
+        data_dir: Root data directory containing the ``features/`` sub-tree.
+        registry: Metadata registry for recording definitions, snapshots,
+            and lineage.
+    """
 
     def __init__(self, data_dir: Path, registry: MetadataRegistry) -> None:
         self.data_dir = data_dir
@@ -29,14 +40,30 @@ class FeatureMaterialiser:
         feature_set_def: FeatureSetDefinition,
         snapshot_id: str | None = None,
     ) -> str:
-        """Materialise a feature set and return the feature_snapshot_id.
+        """Materialise a feature set and return the feature snapshot ID.
+
+        The method resolves the source dataset snapshot, sorts the data by
+        the feature set's sort column (defaulting to ``"timestamp"``),
+        applies each feature strategy in order, writes the result to Parquet
+        with a metadata sidecar, and registers everything in the metadata
+        registry.
 
         Args:
-            feature_set_def: Parsed feature set definition.
-            snapshot_id: Specific dataset snapshot. If None, uses current.
+            feature_set_def: Fully parsed feature set definition containing
+                feature strategies and dataset binding.
+            snapshot_id: Explicit dataset snapshot ID to compute features
+                against.  When ``None`` the dataset's current snapshot is
+                used.
 
         Returns:
-            The feature_snapshot_id.
+            The generated feature snapshot ID string.
+
+        Raises:
+            SnapshotNotFoundError: If the resolved or explicit dataset
+                snapshot does not exist.
+            FeatureError: If a feature references an unknown strategy type
+                or the specified sort column is missing from the snapshot
+                schema.
         """
         dataset_name = feature_set_def.dataset_name
 

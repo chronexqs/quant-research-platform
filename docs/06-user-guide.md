@@ -18,6 +18,7 @@
 6. [Data Scientist Workflows](#6-data-scientist-workflows)
 7. [Support & Operations Workflows](#7-support--operations-workflows)
 8. [Reference](#8-reference)
+9. [JupyterLab Research Environment](#9-jupyterlab-research-environment)
 
 ---
 
@@ -1215,6 +1216,192 @@ feat_lf = adp.load_features(
 ```
 
 This ensures your analysis produces identical results regardless of newer data ingestions or feature rebuilds. Document the snapshot IDs in your research notebooks for full reproducibility.
+
+---
+
+## 9. JupyterLab Research Environment
+
+JupyterLab is the primary interactive environment for quant research on ADP. It provides a notebook-based workflow for data exploration, feature analysis, visualization, and backtesting — all powered by the ADP Python API.
+
+### 9.1 Setting Up JupyterLab
+
+Install JupyterLab alongside ADP using the optional `notebooks` dependency group:
+
+```bash
+pip install -e ".[notebooks]"
+```
+
+This installs `jupyterlab` and `matplotlib`. You can also install them manually: `pip install jupyterlab matplotlib`.
+
+Launch from the project root (so ADP can find its config and data directories):
+
+```bash
+cd quant-research-platform
+jupyter lab
+```
+
+JupyterLab opens in your browser. Navigate to the `notebooks/` folder to find the example notebooks.
+
+### 9.2 Research Workflow in JupyterLab
+
+The standard research workflow combines CLI pipeline commands with interactive Python analysis:
+
+```text
+Step 1: Pipeline Setup     →  Run adp init/ingest/snapshot/features from notebook
+Step 2: Discover           →  list_datasets(), list_snapshots(), list_feature_sets()
+Step 3: Load & Explore     →  load_dataset(), load_features() as LazyFrames
+Step 4: Analyze            →  Polars transformations, DuckDB SQL, statistics
+Step 5: Visualize          →  matplotlib charts and tables
+Step 6: Backtest Matrix    →  build_backtest_matrix() with forward returns
+Step 7: Iterate            →  Modify features.yaml, rebuild, compare
+```
+
+Each notebook is self-contained — it runs the pipeline setup in its first cells so you can start from a clean state.
+
+### 9.3 Notebook Setup Pattern
+
+Every research notebook should start with this standard pattern:
+
+```python
+# Cell 1: Pipeline setup
+import subprocess
+import os
+from pathlib import Path
+
+# Navigate to the project root (parent of notebooks/)
+if os.path.basename(os.getcwd()) == "notebooks":
+    os.chdir("..")
+elif not Path("config/datasets.yaml").exists():
+    root = Path.cwd()
+    while not (root / "config" / "datasets.yaml").exists() and root != root.parent:
+        root = root.parent
+    os.chdir(root)
+
+subprocess.run(["adp", "init"], capture_output=True, check=True)
+subprocess.run(["adp", "ingest", "ohlcv_btcusdt", "--force"], capture_output=True, check=True)
+subprocess.run(["adp", "snapshot", "create", "ohlcv_btcusdt"], capture_output=True, check=True)
+subprocess.run(["adp", "features", "build", "ohlcv_btcusdt", "candle_factors"], capture_output=True, check=True)
+```
+
+```python
+# Cell 2: Imports and display config
+import polars as pl
+import matplotlib.pyplot as plt
+from adp import (
+    load_dataset,
+    load_features,
+    query_dataset,
+    query_features,
+    list_datasets,
+    list_snapshots,
+    list_feature_sets,
+    build_backtest_matrix,
+)
+
+pl.Config.set_tbl_rows(20)
+pl.Config.set_fmt_str_lengths(50)
+```
+
+### 9.4 Example Notebooks
+
+Four example notebooks are provided in the `notebooks/` directory. Each demonstrates a practical, real-world quant research workflow using the platform's mock data.
+
+| Notebook | Description | Datasets | Audience |
+| -------- | ----------- | -------- | -------- |
+| `01_platform_quickstart.ipynb` | End-to-end platform walkthrough — initialization, data discovery, feature loading, SQL queries, and visualization | `ohlcv_btcusdt` + `candle_factors` | New users, all roles |
+| `02_factor_research_backtest.ipynb` | Factor research workflow — backtest matrices, factor-return correlations, volatility regime analysis, signal decay | `ohlcv_btcusdt` + `candle_factors` + `risk_factors` | Quant researchers |
+| `03_rfq_trade_analysis.ipynb` | Cross-dataset analysis — RFQ lifecycle, counterparty acceptance rates, execution slippage, flow analytics | `rfq_events` + `trade_records` + `rfq_analytics` + `trade_factors` | Data scientists, desk analysts |
+| `04_funding_rate_risk_monitor.ipynb` | Funding rate risk monitoring — regime detection, basis analysis, annualized cost estimation, aggregated risk metrics | `funding_rates` + `funding_factors` | Risk analysts, portfolio managers |
+
+**How to use the notebooks:**
+
+1. Launch JupyterLab: `jupyter lab`
+2. Open a notebook from the `notebooks/` folder
+3. Run all cells in order (Cell → Run All) — each notebook initializes its own pipeline
+4. Modify and experiment — change parameters, add new analyses, pin snapshots
+
+**Notebook 01 — Platform Quickstart** covers the basics that all other notebooks build on. Start here if you are new to the platform. It walks through initialization, data loading (lazy vs eager), DuckDB SQL queries, and matplotlib visualization.
+
+**Notebook 02 — Factor Research & Backtesting** is the core quant workflow. It builds a backtest matrix with forward returns at multiple horizons (1s, 5s, 10s, 60s), computes factor-return correlations, combines candle and risk feature sets, and analyzes signal decay across horizons. It also demonstrates volatility regime analysis — splitting the data into high/low volatility regimes based on realized volatility.
+
+**Notebook 03 — RFQ & Trade Analysis** demonstrates cross-dataset joins. It links RFQ lifecycle events with trade execution records to measure counterparty acceptance rates and execution slippage in basis points. This is a practical OTC desk analytics workflow.
+
+**Notebook 04 — Funding Rate Risk Monitor** analyzes 60 days of 8-hourly perpetual funding rates. It detects funding rate regimes (positive/neutral/negative), computes the mark-index basis, estimates annualized funding costs, and produces daily aggregated risk metrics using DuckDB SQL.
+
+### 9.5 Running CLI Commands from Notebooks
+
+ADP CLI commands can be run from notebook cells using Python's `subprocess` module:
+
+```python
+import subprocess
+
+# Run a single command
+subprocess.run(["adp", "ingest", "ohlcv_btcusdt", "--force"], check=True)
+
+# Run multiple pipeline steps
+for dataset in ["rfq_events", "trade_records"]:
+    subprocess.run(["adp", "ingest", dataset, "--force"], check=True)
+    subprocess.run(["adp", "snapshot", "create", dataset], check=True)
+```
+
+Use `--force` on `adp ingest` to allow re-ingestion when re-running notebook cells. The `check=True` parameter raises an exception if any command fails.
+
+### 9.6 Visualization Patterns
+
+ADP notebooks use matplotlib for financial data visualization. Common patterns:
+
+```python
+import matplotlib.pyplot as plt
+
+# Multi-panel chart (price + indicators + returns)
+fig, axes = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
+
+# Panel 1: Price with moving averages
+axes[0].plot(timestamps, close, label="Close", alpha=0.5)
+axes[0].plot(timestamps, sma_10, label="SMA(10)")
+axes[0].legend()
+axes[0].set_title("Price & Moving Averages")
+axes[0].grid(True, alpha=0.3)
+
+# Panel 2: Volatility
+axes[1].plot(timestamps, rolling_vol, color="orange")
+axes[1].set_title("Rolling Volatility")
+
+# Panel 3: Returns (green/red bars)
+colors = ["green" if r >= 0 else "red" for r in returns]
+axes[2].bar(range(len(returns)), returns, color=colors, alpha=0.6)
+axes[2].set_title("Returns")
+
+plt.tight_layout()
+plt.show()
+```
+
+### 9.7 Best Practices
+
+**Reproducibility:**
+
+- Pin snapshot IDs in published research — use `snapshot_id=` parameters
+- Record snapshot IDs at the top of each notebook in a markdown cell
+- Use `list_snapshots()` and `list_feature_sets()` to document exact versions
+
+**Performance:**
+
+- Use lazy evaluation — call `.collect()` as late as possible
+- Use `query_dataset()` / `query_features()` for SQL-based analysis (DuckDB pushes predicates to Parquet)
+- Avoid loading full datasets when you only need a subset — filter with Polars or SQL
+
+**Avoiding look-ahead bias:**
+
+- Forward returns in `build_backtest_matrix()` produce `null` for the last N rows — do not fill these
+- Features use only past and current values (rolling windows look backward)
+- Do not build features on a snapshot that includes data from after the backtest period
+
+**Organizing research:**
+
+- Start with `01_platform_quickstart.ipynb` to verify your environment
+- Create new notebooks in `notebooks/` for each research question
+- Name notebooks descriptively: `05_my_research_topic.ipynb`
+- Use the standard setup pattern (Section 9.3) in every new notebook
 
 ---
 

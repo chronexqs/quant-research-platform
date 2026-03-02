@@ -1,4 +1,23 @@
-"""ADP exception hierarchy."""
+"""ADP exception hierarchy.
+
+All ADP-specific exceptions inherit from :class:`ADPError`, making it
+easy to catch every platform error in a single ``except`` clause.
+
+Hierarchy::
+
+    ADPError
+    +-- ConfigError
+    +-- IngestionError
+    +-- SchemaValidationError
+    +-- NormalizationError
+    +-- SnapshotError
+    +-- DatasetNotFoundError
+    +-- SnapshotNotFoundError
+    +-- FeatureError
+    +-- FeatureSetNotFoundError
+    +-- FeatureSnapshotNotFoundError
+    +-- MetadataError
+"""
 
 
 class ADPError(Exception):

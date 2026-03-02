@@ -1,4 +1,15 @@
-"""Typer CLI for the Athena Data Platform."""
+"""Typer CLI for the Athena Data Platform.
+
+Provides the ``adp`` command-line interface with subcommands for
+initialisation, ingestion, snapshot management, and feature
+materialisation.  Run ``adp --help`` for usage details.
+
+Subcommand groups:
+
+* **adp init / ingest** -- top-level platform commands.
+* **adp snapshot create|list|show** -- dataset snapshot management.
+* **adp features build|list|show|load** -- feature lifecycle management.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +32,14 @@ app.add_typer(features_app, name="features")
 def _main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
 ) -> None:
-    """Athena Data Platform CLI."""
+    """Athena Data Platform CLI -- top-level callback.
+
+    Configures the root logger before any subcommand runs.
+
+    Args:
+        verbose: When ``True``, sets the log level to ``DEBUG``;
+            otherwise defaults to ``WARNING``.
+    """
     level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(
         level=level,
@@ -30,6 +48,15 @@ def _main(
 
 
 def _get_registry(metadata_dir: Path) -> MetadataRegistry:
+    """Construct a :class:`MetadataRegistry` from a metadata directory.
+
+    Args:
+        metadata_dir: Directory containing (or that will contain) the
+            ``adp_registry.db`` SQLite file.
+
+    Returns:
+        A connected :class:`MetadataRegistry` instance.
+    """
     db_path = metadata_dir / "adp_registry.db"
     return MetadataRegistry(db_path)
 
@@ -43,7 +70,17 @@ def init(
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """Initialize the ADP platform directory structure and metadata database."""
+    """Initialize the ADP platform directory structure and metadata database.
+
+    Creates the ``data/{raw,staged,normalized,features}``, ``metadata/``,
+    and ``config/`` directories if they do not already exist, then
+    initialises the SQLite registry.
+
+    Args:
+        config_dir: Path to the configuration directory.
+        data_dir: Root path for lakehouse data storage.
+        metadata_dir: Path to the metadata / registry directory.
+    """
     for subdir in ["raw", "staged", "normalized", "features"]:
         (data_dir / subdir).mkdir(parents=True, exist_ok=True)
     metadata_dir.mkdir(parents=True, exist_ok=True)
@@ -66,7 +103,24 @@ def ingest(
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """Ingest data for a dataset."""
+    """Ingest raw data for a named dataset.
+
+    Reads the dataset configuration from ``datasets.yaml``, registers
+    the dataset in the metadata registry if it is new, and then runs
+    the ingestion pipeline.
+
+    Args:
+        dataset_name: Name of the dataset as declared in the config.
+        source: Override the configured source type.
+        path: Override the configured file path.
+        force: Force re-ingestion even if data has already been ingested.
+        config_dir: Path to the configuration directory.
+        data_dir: Root path for lakehouse data storage.
+        metadata_dir: Path to the metadata / registry directory.
+
+    Raises:
+        typer.Exit: On configuration or ingestion errors (exit code 1).
+    """
     from adp.config import load_datasets_config
     from adp.ingestion import run_ingestion
     from adp.processing.schema import compute_schema_hash_from_defs
@@ -122,7 +176,22 @@ def snapshot_create(
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """Create a normalized snapshot from the latest raw ingestion."""
+    """Create a normalised snapshot from the latest raw ingestion.
+
+    Loads the dataset config, collects all ingestion IDs for the named
+    dataset, and passes them through the :class:`SnapshotEngine` to
+    produce a normalised, deduplicated Parquet snapshot.
+
+    Args:
+        dataset_name: Name of the dataset as declared in the config.
+        config_dir: Path to the configuration directory.
+        data_dir: Root path for lakehouse data storage.
+        metadata_dir: Path to the metadata / registry directory.
+
+    Raises:
+        typer.Exit: On configuration, missing-ingestion, or snapshot
+            errors (exit code 1).
+    """
     from adp.config import load_datasets_config
     from adp.storage.snapshot import SnapshotEngine
 
@@ -161,7 +230,12 @@ def snapshot_list(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """List all snapshots for a dataset."""
+    """List all snapshots for a dataset, marking the current one.
+
+    Args:
+        dataset_name: Name of the dataset whose snapshots to list.
+        metadata_dir: Path to the metadata / registry directory.
+    """
     registry = _get_registry(metadata_dir)
     snapshots = registry.list_snapshots(dataset_name)
     if not snapshots:
@@ -180,7 +254,17 @@ def snapshot_show(
     lineage: bool = typer.Option(False, help="Show lineage"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """Show details of a specific snapshot."""
+    """Show details of a specific snapshot, optionally including lineage.
+
+    Args:
+        snapshot_id: The unique identifier of the snapshot to inspect.
+        lineage: When ``True``, also prints the ingestion IDs that
+            contributed to the snapshot.
+        metadata_dir: Path to the metadata / registry directory.
+
+    Raises:
+        typer.Exit: If the snapshot is not found (exit code 1).
+    """
     registry = _get_registry(metadata_dir)
     snap = registry.get_snapshot(snapshot_id)
     if not snap:
@@ -215,7 +299,25 @@ def features_build(
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """Build features for a dataset."""
+    """Build (materialise) features for a dataset from a feature set definition.
+
+    Loads the feature set configuration, parses it into a feature-set
+    definition, and delegates to the :class:`FeatureMaterialiser` to
+    compute and persist the feature snapshot.
+
+    Args:
+        dataset_name: Name of the dataset as declared in the config.
+        feature_set: Name of the feature set to build.
+        snapshot: Optional snapshot ID to build features against.
+            Defaults to the current snapshot of the dataset.
+        config_dir: Path to the configuration directory.
+        data_dir: Root path for lakehouse data storage.
+        metadata_dir: Path to the metadata / registry directory.
+
+    Raises:
+        typer.Exit: On configuration or materialisation errors
+            (exit code 1).
+    """
     from adp.config import load_features_config
     from adp.features.definitions import parse_feature_set
     from adp.features.materializer import FeatureMaterialiser
@@ -255,12 +357,19 @@ def features_list(
     dataset_name: str = typer.Argument(..., help="Dataset name"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """List feature sets for a dataset."""
+    """List registered feature sets for a dataset.
+
+    Args:
+        dataset_name: Name of the dataset whose feature sets to list.
+        metadata_dir: Path to the metadata / registry directory.
+    """
     registry = _get_registry(metadata_dir)
     defs = registry.list_feature_definitions(dataset_name)
     if not defs:
         typer.echo(f"No feature sets found for '{dataset_name}'.")
         return
+    # Deduplicate by (name, version) since the registry may store
+    # multiple snapshots for the same feature set definition.
     seen: set[tuple[str, int]] = set()
     for d in defs:
         key = (d.feature_name, d.version)
@@ -275,7 +384,13 @@ def features_show(
     feature_set: str = typer.Argument(..., help="Feature set name"),
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
 ) -> None:
-    """Show feature set details and snapshots."""
+    """Show feature set details and all associated snapshots.
+
+    Args:
+        dataset_name: Name of the dataset.
+        feature_set: Name of the feature set to inspect.
+        metadata_dir: Path to the metadata / registry directory.
+    """
     registry = _get_registry(metadata_dir)
     snapshots = registry.list_feature_snapshots(dataset_name, feature_set)
     if not snapshots:
@@ -296,7 +411,18 @@ def features_load(
     metadata_dir: Path = typer.Option(Path("metadata"), help="Metadata directory"),
     data_dir: Path = typer.Option(Path("data"), help="Data directory"),
 ) -> None:
-    """Load and display feature data."""
+    """Load and display the first *head* rows of a feature snapshot.
+
+    Args:
+        dataset_name: Name of the dataset.
+        feature_set: Name of the feature set to load.
+        head: Number of rows to display.
+        metadata_dir: Path to the metadata / registry directory.
+        data_dir: Root path for lakehouse data storage.
+
+    Raises:
+        typer.Exit: If the feature snapshot cannot be loaded (exit code 1).
+    """
     from adp.features.feature_store import load_feature_snapshot
 
     try:

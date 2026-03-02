@@ -9,6 +9,9 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
+# Polars ``unique()`` keep strategy. Controls which duplicate row is retained:
+# ``"first"``/``"last"`` keep the first/last occurrence, ``"any"`` is
+# non-deterministic, and ``"none"`` drops all duplicates.
 UniqueKeep = Literal["first", "last", "any", "none"]
 
 

@@ -23,10 +23,12 @@ from adp.metadata.schema import get_connection, initialize_schema
 
 
 def _now_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
     return datetime.now(UTC).isoformat()
 
 
 def _parse_dt(s: str) -> datetime:
+    """Parse an ISO-8601 string into a timezone-aware ``datetime``."""
     return datetime.fromisoformat(s)
 
 
@@ -165,6 +167,7 @@ FROM (
 
 
 def _to_dataset(row: tuple[Any, ...]) -> DatasetRecord:
+    """Convert a raw SQLite row tuple into a :class:`DatasetRecord`."""
     return DatasetRecord(
         row[0],
         row[1],
@@ -176,10 +179,12 @@ def _to_dataset(row: tuple[Any, ...]) -> DatasetRecord:
 
 
 def _to_ingestion(row: tuple[Any, ...]) -> IngestionRecord:
+    """Convert a raw SQLite row tuple into an :class:`IngestionRecord`."""
     return IngestionRecord(row[0], row[1], row[2], row[3], row[4], _parse_dt(row[5]))
 
 
 def _to_snapshot(row: tuple[Any, ...]) -> SnapshotRecord:
+    """Convert a raw SQLite row tuple into a :class:`SnapshotRecord`."""
     return SnapshotRecord(
         row[0],
         row[1],
@@ -192,10 +197,12 @@ def _to_snapshot(row: tuple[Any, ...]) -> SnapshotRecord:
 
 
 def _to_feat_def(row: tuple[Any, ...]) -> FeatureDefinitionRecord:
+    """Convert a raw SQLite row tuple into a :class:`FeatureDefinitionRecord`."""
     return FeatureDefinitionRecord(row[0], row[1], row[2], row[3], row[4], _parse_dt(row[5]))
 
 
 def _to_feat_snap(row: tuple[Any, ...]) -> FeatureSnapshotRecord:
+    """Convert a raw SQLite row tuple into a :class:`FeatureSnapshotRecord`."""
     return FeatureSnapshotRecord(
         row[0],
         row[1],
@@ -209,7 +216,18 @@ def _to_feat_snap(row: tuple[Any, ...]) -> FeatureSnapshotRecord:
 
 
 class MetadataRegistry:
-    """Single-user metadata registry backed by SQLite (WAL mode)."""
+    """Single-user metadata registry backed by SQLite (WAL mode).
+
+    Provides a transactional API for managing the full ADP metadata lifecycle:
+    dataset registration, raw-ingestion logging, snapshot creation, feature
+    definition tracking, feature snapshot materialisation, and lineage linking.
+
+    The registry is designed for single-process use.  Concurrent writes from
+    multiple processes are **not** supported.
+
+    Attributes:
+        db_path: Filesystem path to the underlying SQLite database.
+    """
 
     def __init__(self, db_path: Path | str) -> None:
         self.db_path = db_path
@@ -249,6 +267,19 @@ class MetadataRegistry:
         schema_hash: str,
         description: str = "",
     ) -> DatasetRecord:
+        """Register a new dataset in the metadata store.
+
+        Args:
+            dataset_name: Unique name for the dataset.
+            schema_hash: Hash of the dataset's column schema definition.
+            description: Optional human-readable description.
+
+        Returns:
+            The newly created :class:`DatasetRecord`.
+
+        Raises:
+            MetadataError: If a dataset with the same name already exists.
+        """
         now = _now_iso()
         try:
             with self.transaction() as cur:
@@ -268,14 +299,32 @@ class MetadataRegistry:
         )
 
     def get_dataset(self, dataset_name: str) -> DatasetRecord | None:
+        """Retrieve a dataset record by name.
+
+        Args:
+            dataset_name: The dataset to look up.
+
+        Returns:
+            The matching :class:`DatasetRecord`, or ``None`` if not found.
+        """
         row = self._conn.execute(_SQL_SELECT_DATASET, (dataset_name,)).fetchone()
         return _to_dataset(row) if row else None
 
     def list_datasets(self) -> list[DatasetRecord]:
+        """Return all registered datasets, ordered alphabetically by name."""
         rows = self._conn.execute(_SQL_LIST_DATASETS).fetchall()
         return [_to_dataset(r) for r in rows]
 
     def update_current_snapshot(self, dataset_name: str, snapshot_id: str) -> None:
+        """Point a dataset's ``current_snapshot`` to the given snapshot ID.
+
+        Args:
+            dataset_name: Dataset to update.
+            snapshot_id: Snapshot ID to set as current.
+
+        Raises:
+            MetadataError: If the dataset does not exist.
+        """
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
@@ -286,6 +335,12 @@ class MetadataRegistry:
                 raise MetadataError(f"Dataset '{dataset_name}' not found")
 
     def update_schema_hash(self, dataset_name: str, schema_hash: str) -> None:
+        """Update the stored schema hash for a dataset.
+
+        Args:
+            dataset_name: Dataset whose schema hash should be updated.
+            schema_hash: New schema hash value.
+        """
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
@@ -303,6 +358,18 @@ class MetadataRegistry:
         source_location: str,
         row_count: int,
     ) -> IngestionRecord:
+        """Record a raw data ingestion event.
+
+        Args:
+            ingestion_id: Pre-generated unique ingestion identifier.
+            dataset_name: Dataset that was ingested into.
+            source_type: Type of source (e.g. ``"csv"``, ``"api"``).
+            source_location: URI or path to the original source data.
+            row_count: Number of rows ingested.
+
+        Returns:
+            The newly created :class:`IngestionRecord`.
+        """
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
@@ -326,16 +393,41 @@ class MetadataRegistry:
         )
 
     def get_ingestion(self, ingestion_id: str) -> IngestionRecord | None:
+        """Retrieve an ingestion record by its ID.
+
+        Args:
+            ingestion_id: The ingestion to look up.
+
+        Returns:
+            The matching :class:`IngestionRecord`, or ``None`` if not found.
+        """
         row = self._conn.execute(_SQL_SELECT_INGESTION, (ingestion_id,)).fetchone()
         return _to_ingestion(row) if row else None
 
     def list_ingestions(self, dataset_name: str) -> list[IngestionRecord]:
+        """List all ingestion records for a dataset, most recent first.
+
+        Args:
+            dataset_name: Dataset to query.
+
+        Returns:
+            List of :class:`IngestionRecord` ordered by timestamp descending.
+        """
         rows = self._conn.execute(_SQL_LIST_INGESTIONS, (dataset_name,)).fetchall()
         return [_to_ingestion(r) for r in rows]
 
     def find_ingestion_by_source(
         self, dataset_name: str, source_location: str
     ) -> IngestionRecord | None:
+        """Find the most recent ingestion for a given source location.
+
+        Args:
+            dataset_name: Dataset to search within.
+            source_location: URI or path of the original source to match.
+
+        Returns:
+            The most recent matching :class:`IngestionRecord`, or ``None``.
+        """
         row = self._conn.execute(
             _SQL_FIND_INGESTION_BY_SRC,
             (dataset_name, source_location),
@@ -353,6 +445,20 @@ class MetadataRegistry:
         row_count: int,
         storage_path: str,
     ) -> SnapshotRecord:
+        """Record a new normalized dataset snapshot.
+
+        Args:
+            snapshot_id: Pre-generated unique snapshot identifier.
+            dataset_name: Dataset this snapshot belongs to.
+            schema_hash: Hash of the column schema at creation time.
+            normalization_version: Version string of the normalization
+                pipeline used.
+            row_count: Number of rows in the snapshot.
+            storage_path: Filesystem path where the Parquet data is stored.
+
+        Returns:
+            The newly created :class:`SnapshotRecord`.
+        """
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
@@ -378,14 +484,39 @@ class MetadataRegistry:
         )
 
     def get_snapshot(self, snapshot_id: str) -> SnapshotRecord | None:
+        """Retrieve a snapshot record by its ID.
+
+        Args:
+            snapshot_id: The snapshot to look up.
+
+        Returns:
+            The matching :class:`SnapshotRecord`, or ``None`` if not found.
+        """
         row = self._conn.execute(_SQL_SELECT_SNAPSHOT, (snapshot_id,)).fetchone()
         return _to_snapshot(row) if row else None
 
     def list_snapshots(self, dataset_name: str) -> list[SnapshotRecord]:
+        """List all snapshots for a dataset, most recent first.
+
+        Args:
+            dataset_name: Dataset to query.
+
+        Returns:
+            List of :class:`SnapshotRecord` ordered by creation time descending.
+        """
         rows = self._conn.execute(_SQL_LIST_SNAPSHOTS, (dataset_name,)).fetchall()
         return [_to_snapshot(r) for r in rows]
 
     def link_snapshot_lineage(self, snapshot_id: str, ingestion_id: str) -> SnapshotLineageRecord:
+        """Create a lineage link between a snapshot and a source ingestion.
+
+        Args:
+            snapshot_id: The snapshot that was derived from the ingestion.
+            ingestion_id: The raw ingestion that contributed to the snapshot.
+
+        Returns:
+            The newly created :class:`SnapshotLineageRecord`.
+        """
         with self.transaction() as cur:
             cur.execute(
                 "INSERT INTO snapshot_lineage (snapshot_id, ingestion_id) VALUES (?, ?)",
@@ -397,6 +528,14 @@ class MetadataRegistry:
         )
 
     def get_snapshot_lineage(self, snapshot_id: str) -> list[SnapshotLineageRecord]:
+        """Retrieve all ingestion lineage links for a snapshot.
+
+        Args:
+            snapshot_id: The snapshot to query lineage for.
+
+        Returns:
+            List of :class:`SnapshotLineageRecord` linking to source ingestions.
+        """
         rows = self._conn.execute(
             "SELECT snapshot_id, ingestion_id FROM snapshot_lineage WHERE snapshot_id = ?",
             (snapshot_id,),
@@ -413,6 +552,27 @@ class MetadataRegistry:
         definition_hash: str,
         definition_yaml: str | None = None,
     ) -> FeatureDefinitionRecord:
+        """Register a versioned feature definition (idempotent).
+
+        If the exact ``(feature_name, dataset_name, version)`` triple already
+        exists with the same hash, this is a no-op.  If the triple exists but
+        the hash differs, a :class:`MetadataError` is raised to prevent
+        silent definition drift.
+
+        Args:
+            feature_name: Logical name of the feature set.
+            dataset_name: Target dataset name.
+            version: Monotonically increasing version number.
+            definition_hash: SHA-256 hash of the feature definitions.
+            definition_yaml: Optional raw YAML text for auditability.
+
+        Returns:
+            The :class:`FeatureDefinitionRecord` (new or existing).
+
+        Raises:
+            MetadataError: If the same version already exists with a
+                different definition hash.
+        """
         # Check for hash mismatch on same version (definition changed
         # without version bump)
         existing = self.get_feature_definition(feature_name, dataset_name, version)
@@ -450,6 +610,17 @@ class MetadataRegistry:
         dataset_name: str,
         version: int | None = None,
     ) -> FeatureDefinitionRecord | None:
+        """Retrieve a feature definition record.
+
+        Args:
+            feature_name: Logical name of the feature set.
+            dataset_name: Target dataset name.
+            version: Specific version to fetch.  When ``None`` the latest
+                version is returned.
+
+        Returns:
+            The matching :class:`FeatureDefinitionRecord`, or ``None``.
+        """
         if version is not None:
             row = self._conn.execute(
                 _SQL_SELECT_FEAT_DEF,
@@ -463,6 +634,15 @@ class MetadataRegistry:
         return _to_feat_def(row) if row else None
 
     def list_feature_definitions(self, dataset_name: str) -> list[FeatureDefinitionRecord]:
+        """List all feature definitions for a dataset, ordered by name and version.
+
+        Args:
+            dataset_name: Dataset to query.
+
+        Returns:
+            List of :class:`FeatureDefinitionRecord` sorted by feature name
+            then version descending.
+        """
         rows = self._conn.execute(_SQL_LIST_FEAT_DEFS, (dataset_name,)).fetchall()
         return [_to_feat_def(r) for r in rows]
 
@@ -476,6 +656,20 @@ class MetadataRegistry:
         row_count: int,
         storage_path: str,
     ) -> FeatureSnapshotRecord:
+        """Record a new materialised feature snapshot.
+
+        Args:
+            feature_snapshot_id: Pre-generated unique identifier.
+            feature_name: Logical name of the feature set.
+            dataset_name: Source dataset name.
+            feature_version: Version of the feature definition used.
+            definition_hash: SHA-256 hash of the feature definitions.
+            row_count: Number of rows in the snapshot.
+            storage_path: Filesystem path where the Parquet data is stored.
+
+        Returns:
+            The newly created :class:`FeatureSnapshotRecord`.
+        """
         now = _now_iso()
         with self.transaction() as cur:
             cur.execute(
@@ -503,12 +697,30 @@ class MetadataRegistry:
         )
 
     def get_feature_snapshot(self, feature_snapshot_id: str) -> FeatureSnapshotRecord | None:
+        """Retrieve a feature snapshot record by its ID.
+
+        Args:
+            feature_snapshot_id: The feature snapshot to look up.
+
+        Returns:
+            The matching :class:`FeatureSnapshotRecord`, or ``None``.
+        """
         row = self._conn.execute(_SQL_SELECT_FEAT_SNAP, (feature_snapshot_id,)).fetchone()
         return _to_feat_snap(row) if row else None
 
     def get_latest_feature_snapshot(
         self, feature_name: str, dataset_name: str
     ) -> FeatureSnapshotRecord | None:
+        """Retrieve the most recently created feature snapshot for a feature set.
+
+        Args:
+            feature_name: Logical name of the feature set.
+            dataset_name: Source dataset name.
+
+        Returns:
+            The latest :class:`FeatureSnapshotRecord`, or ``None`` if no
+            snapshots exist.
+        """
         row = self._conn.execute(
             _SQL_SELECT_FEAT_SNAP_LATEST,
             (feature_name, dataset_name),
@@ -520,6 +732,18 @@ class MetadataRegistry:
         dataset_name: str,
         feature_name: str | None = None,
     ) -> list[FeatureSnapshotRecord]:
+        """List feature snapshots for a dataset, most recent first.
+
+        Args:
+            dataset_name: Dataset to query.
+            feature_name: Optional filter to restrict results to a single
+                feature set.  When ``None`` all feature snapshots for the
+                dataset are returned.
+
+        Returns:
+            List of :class:`FeatureSnapshotRecord` ordered by creation time
+            descending.
+        """
         if feature_name:
             rows = self._conn.execute(
                 _SQL_LIST_FEAT_SNAPS_BY_NAME,
@@ -534,6 +758,15 @@ class MetadataRegistry:
         feature_snapshot_id: str,
         dataset_snapshot_id: str,
     ) -> FeatureLineageRecord:
+        """Create a lineage link between a feature snapshot and its source dataset snapshot.
+
+        Args:
+            feature_snapshot_id: The feature snapshot that was derived.
+            dataset_snapshot_id: The dataset snapshot used as input.
+
+        Returns:
+            The newly created :class:`FeatureLineageRecord`.
+        """
         with self.transaction() as cur:
             cur.execute(
                 "INSERT INTO feature_lineage "
@@ -547,6 +780,15 @@ class MetadataRegistry:
         )
 
     def get_feature_lineage(self, feature_snapshot_id: str) -> list[FeatureLineageRecord]:
+        """Retrieve all dataset-snapshot lineage links for a feature snapshot.
+
+        Args:
+            feature_snapshot_id: The feature snapshot to query lineage for.
+
+        Returns:
+            List of :class:`FeatureLineageRecord` linking to source dataset
+            snapshots.
+        """
         rows = self._conn.execute(
             "SELECT feature_snapshot_id, dataset_snapshot_id "
             "FROM feature_lineage "

@@ -30,7 +30,20 @@ from adp.storage.snapshot import SnapshotEngine
 
 
 def _make_trades_csv(path: Path, n: int = 100) -> Path:
-    """Create a deterministic trades CSV with tz-naive timestamp strings."""
+    """Create a deterministic trades CSV with tz-naive timestamp strings.
+
+    Generates *n* rows with columns matching the ``test_trades`` schema
+    (trade_id, symbol, price, quantity, side, timestamp).  Timestamps are
+    formatted without timezone markers so that the normalization pipeline's
+    ``str.to_datetime`` cast succeeds.
+
+    Args:
+        path: Destination file path for the CSV.
+        n: Number of trade rows to generate.
+
+    Returns:
+        The same *path*, for call-chaining convenience.
+    """
     base_time = datetime(2026, 1, 15, 10, 0, 0)
     rows = []
     for i in range(n):

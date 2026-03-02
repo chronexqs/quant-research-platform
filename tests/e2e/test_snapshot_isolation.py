@@ -33,7 +33,18 @@ _MOCK_DATA_DIR = _PROJECT_ROOT / "data" / "mock_data"
 
 
 def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
-    """Create an isolated directory structure."""
+    """Create an isolated ADP directory tree and copy mock data into it.
+
+    Builds the standard ``data/{raw,staged,normalized,features}``,
+    ``config/``, and ``metadata/`` directories under *tmp_path*, then
+    copies all CSV files from the project's ``data/mock_data/`` folder.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory.
+
+    Returns:
+        Tuple of ``(data_dir, config_dir, metadata_dir)``.
+    """
     data_dir = tmp_path / "data"
     config_dir = tmp_path / "config"
     metadata_dir = tmp_path / "metadata"
@@ -53,7 +64,19 @@ def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 def _write_ohlcv_configs(config_dir: Path, data_dir: Path) -> tuple[Path, Path]:
-    """Write datasets.yaml and features.yaml for OHLCV."""
+    """Write ``datasets.yaml`` and ``features.yaml`` for the OHLCV dataset.
+
+    The datasets config references the mock OHLCV CSV in *data_dir*;
+    the features config defines ``candle_factors`` with rolling_vol_5,
+    sma_10, and close_returns.
+
+    Args:
+        config_dir: Directory where both YAML files will be written.
+        data_dir: Root data directory containing ``mock_data/``.
+
+    Returns:
+        Tuple of ``(datasets_yaml_path, features_yaml_path)``.
+    """
     csv_path = data_dir / "mock_data" / "ohlcv_btcusdt_1s.csv"
 
     datasets_yaml = config_dir / "datasets.yaml"
@@ -127,7 +150,17 @@ def _setup_registered_dataset(
     config_dir: Path,
     metadata_dir: Path,
 ) -> MetadataRegistry:
-    """Create registry and register the OHLCV dataset. Returns the registry."""
+    """Create a file-backed registry and register the ``ohlcv_btcusdt`` dataset.
+
+    Args:
+        data_dir: Root data directory (unused directly, but part of the
+            standard helper signature).
+        config_dir: Directory containing ``datasets.yaml``.
+        metadata_dir: Directory where the SQLite registry DB is created.
+
+    Returns:
+        A ``MetadataRegistry`` with the OHLCV dataset already registered.
+    """
     db_path = metadata_dir / "adp_registry.db"
     registry = MetadataRegistry(db_path)
 
@@ -147,7 +180,19 @@ def _ingest(
     config_dir: Path,
     registry: MetadataRegistry,
 ) -> str:
-    """Run ingestion and return the ingestion_id."""
+    """Run ingestion for the ``ohlcv_btcusdt`` dataset and return the ingestion ID.
+
+    Uses ``force=True`` so repeated calls against the same source file
+    do not trigger the idempotency guard.
+
+    Args:
+        data_dir: Root data directory.
+        config_dir: Directory containing ``datasets.yaml``.
+        registry: Metadata registry instance.
+
+    Returns:
+        The ingestion ID produced by ``run_ingestion``.
+    """
     datasets_cfg = load_datasets_config(config_dir / "datasets.yaml")
     ds_config = datasets_cfg.datasets["ohlcv_btcusdt"]
 
@@ -167,7 +212,17 @@ def _create_snapshot(
     registry: MetadataRegistry,
     ingestion_id: str,
 ) -> str:
-    """Create a snapshot and return the snapshot_id."""
+    """Create a normalized snapshot from a raw ingestion.
+
+    Args:
+        data_dir: Root data directory.
+        config_dir: Directory containing ``datasets.yaml``.
+        registry: Metadata registry instance.
+        ingestion_id: The raw ingestion to include in this snapshot.
+
+    Returns:
+        The snapshot ID produced by the ``SnapshotEngine``.
+    """
     datasets_cfg = load_datasets_config(config_dir / "datasets.yaml")
     ds_config = datasets_cfg.datasets["ohlcv_btcusdt"]
 
@@ -181,7 +236,18 @@ def _build_features(
     registry: MetadataRegistry,
     snapshot_id: str | None = None,
 ) -> str:
-    """Build features and return the feature_snapshot_id."""
+    """Materialise the ``candle_factors`` feature set and return its snapshot ID.
+
+    Args:
+        data_dir: Root data directory.
+        config_dir: Directory containing ``features.yaml``.
+        registry: Metadata registry instance.
+        snapshot_id: Optional explicit dataset snapshot to build from.
+            When ``None``, the current snapshot is used.
+
+    Returns:
+        The feature snapshot ID produced by the materialiser.
+    """
     features_cfg = load_features_config(config_dir / "features.yaml")
     fs_config = features_cfg["ohlcv_btcusdt"]["candle_factors"]
     fs_def = parse_feature_set("ohlcv_btcusdt", "candle_factors", fs_config)

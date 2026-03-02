@@ -1,4 +1,10 @@
-"""Shared test fixtures for ADP tests."""
+"""Shared test fixtures for the ADP test suite.
+
+Provides reusable pytest fixtures for directory scaffolding, in-memory
+metadata registries, deterministic sample DataFrames (trades, OHLCV),
+YAML configuration files, and serialised CSV/Parquet artifacts.  All
+fixtures are session-safe and produce isolated, temporary state.
+"""
 
 from __future__ import annotations
 

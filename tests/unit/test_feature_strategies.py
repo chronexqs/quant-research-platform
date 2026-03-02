@@ -27,10 +27,26 @@ from adp.features.strategies import (
 
 
 def _prices_lf(prices: list[float]) -> pl.LazyFrame:
+    """Create a single-column ``LazyFrame`` with the given price series.
+
+    Args:
+        prices: List of float values for the ``"price"`` column.
+
+    Returns:
+        A ``pl.LazyFrame`` with one column named ``"price"``.
+    """
     return pl.LazyFrame({"price": prices})
 
 
 def _ohlcv_lf() -> pl.LazyFrame:
+    """Create a small price-and-volume ``LazyFrame`` for VWAP-style tests.
+
+    Returns a five-row ``LazyFrame`` with ``"price"`` and ``"volume"``
+    columns containing deterministic values.
+
+    Returns:
+        A ``pl.LazyFrame`` with ``"price"`` and ``"volume"`` columns.
+    """
     return pl.LazyFrame(
         {
             "price": [100.0, 102.0, 101.0, 105.0, 103.0],

@@ -21,6 +21,21 @@ def _make_feature_set_config(
     features: list[dict] | None = None,
     version: int = 1,
 ) -> FeatureSetConfig:
+    """Build a ``FeatureSetConfig`` with sensible defaults for testing.
+
+    When *features* is ``None``, two standard features are used:
+    ``price_sma_5`` (moving average, window 5) and ``price_returns``
+    (simple returns).
+
+    Args:
+        features: Optional list of feature definition dicts.  Each dict
+            is unpacked into a ``FeatureDefConfig``.
+        version: Feature set version number.
+
+    Returns:
+        A ``FeatureSetConfig`` ready for ``parse_feature_set`` or
+        ``compute_definition_hash`` calls.
+    """
     if features is None:
         features = [
             {"name": "price_sma_5", "type": "moving_average", "column": "price", "window": 5},

@@ -14,7 +14,8 @@ from pydantic import create_model
 from adp.config import ColumnDef, ColumnType
 from adp.exceptions import SchemaValidationError
 
-# Map config types to Python types
+# Mapping from ``ColumnType`` enum values to native Python types.
+# Used by ``build_schema_model`` to construct Pydantic validation models.
 TYPE_MAP: dict[ColumnType, type] = {
     ColumnType.str_: str,
     ColumnType.int_: int,
@@ -25,7 +26,10 @@ TYPE_MAP: dict[ColumnType, type] = {
     ColumnType.decimal_: Decimal,
 }
 
-# Map config types to Polars dtypes
+# Mapping from ``ColumnType`` enum values to Polars data types.
+# Used by ``cast_dataframe`` and ``get_expected_polars_schema`` for type
+# coercion and validation. Note: ``Decimal`` maps to ``Float64`` because
+# Polars does not have a native decimal type.
 POLARS_TYPE_MAP: dict[ColumnType, pl.DataType] = {
     ColumnType.str_: pl.Utf8(),
     ColumnType.int_: pl.Int64(),
@@ -38,10 +42,17 @@ POLARS_TYPE_MAP: dict[ColumnType, pl.DataType] = {
 
 
 def compute_schema_hash(columns: list[dict[str, Any]]) -> str:
-    """Compute SHA-256 hash of a column specification.
+    """Compute a deterministic SHA-256 hash of a column specification.
 
-    Columns are sorted by name for determinism, then JSON-serialized
-    with sort_keys=True.
+    Columns are sorted by name before hashing so that ordering
+    differences do not produce different hashes.
+
+    Args:
+        columns: List of column dicts, each containing at minimum
+            ``"name"``, ``"type"``, and ``"nullable"`` keys.
+
+    Returns:
+        A lowercase hex-encoded SHA-256 digest string.
     """
     normalized = sorted(columns, key=lambda c: c["name"])
     payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
@@ -49,7 +60,17 @@ def compute_schema_hash(columns: list[dict[str, Any]]) -> str:
 
 
 def compute_schema_hash_from_defs(columns: list[ColumnDef]) -> str:
-    """Compute schema hash from ColumnDef objects."""
+    """Compute a deterministic schema hash from ``ColumnDef`` objects.
+
+    Convenience wrapper around ``compute_schema_hash`` that converts
+    ``ColumnDef`` instances to plain dicts first.
+
+    Args:
+        columns: List of ``ColumnDef`` configuration objects.
+
+    Returns:
+        A lowercase hex-encoded SHA-256 digest string.
+    """
     col_dicts = [{"name": c.name, "type": c.type.value, "nullable": c.nullable} for c in columns]
     return compute_schema_hash(col_dicts)
 
@@ -58,7 +79,21 @@ def build_schema_model(
     dataset_name: str,
     columns: list[ColumnDef],
 ) -> type:
-    """Dynamically create a Pydantic model from column definitions."""
+    """Dynamically create a Pydantic model from column definitions.
+
+    The generated model can be used for row-level validation. Nullable
+    columns default to ``None``; non-nullable columns are required.
+
+    Args:
+        dataset_name: Used as the prefix for the generated model class
+            name (e.g. ``"trades"`` produces ``trades_Schema``).
+        columns: Column definitions specifying field names, types, and
+            nullability.
+
+    Returns:
+        A Pydantic ``BaseModel`` subclass with fields matching the
+        column definitions.
+    """
     fields: dict[str, Any] = {}
     for col in columns:
         python_type = TYPE_MAP[col.type]
@@ -70,15 +105,33 @@ def build_schema_model(
 
 
 def get_expected_polars_schema(columns: list[ColumnDef]) -> dict[str, pl.DataType]:
-    """Get expected Polars column dtypes from config."""
+    """Build a mapping of column names to expected Polars data types.
+
+    Args:
+        columns: Column definitions from dataset configuration.
+
+    Returns:
+        Dict mapping column name to its expected ``pl.DataType``.
+    """
     return {col.name: POLARS_TYPE_MAP[col.type] for col in columns}
 
 
 def cast_dataframe(lf: pl.LazyFrame, columns: list[ColumnDef]) -> pl.LazyFrame:
-    """Cast LazyFrame columns to expected Polars types.
+    """Cast LazyFrame columns to their expected Polars data types.
 
-    Handles both string-typed columns (from CSV) and already-typed
-    columns (from Parquet) gracefully.
+    Handles both string-typed columns (typical of CSV ingestion) and
+    already-typed columns (typical of Parquet ingestion) gracefully.
+    String-to-datetime and string-to-date conversions use dedicated
+    parsing expressions; all other casts use ``pl.Expr.cast``.
+
+    Args:
+        lf: Input LazyFrame to cast.
+        columns: Column definitions specifying target types.
+
+    Returns:
+        A new LazyFrame with columns cast to the types defined in
+        ``POLARS_TYPE_MAP``. Columns already matching their target type
+        are left untouched.
     """
     schema = lf.collect_schema()
     cast_exprs = []
@@ -105,13 +158,27 @@ def validate_dataframe(
     lf: pl.LazyFrame,
     columns: list[ColumnDef],
 ) -> pl.LazyFrame:
-    """Validate a LazyFrame against schema definitions.
+    """Validate and coerce a LazyFrame against schema definitions.
 
-    1. Check all expected columns exist
-    2. Cast columns to expected types
-    3. Validate non-nullable constraints on the full dataset
+    Performs the following checks in order:
 
-    Returns the casted LazyFrame.
+    1. Verify all expected columns exist in the LazyFrame.
+    2. Cast columns to their expected Polars types via ``cast_dataframe``.
+    3. Enforce non-nullable constraints by counting nulls across the
+       full dataset.
+
+    Args:
+        lf: Input LazyFrame to validate.
+        columns: Column definitions specifying expected names, types,
+            and nullability constraints.
+
+    Returns:
+        The validated and type-cast LazyFrame, ready for downstream
+        processing.
+
+    Raises:
+        SchemaValidationError: If required columns are missing or
+            non-nullable columns contain null values.
     """
     # Check columns exist
     schema = lf.collect_schema()

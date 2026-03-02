@@ -18,14 +18,49 @@ logger = logging.getLogger(__name__)
 
 
 class AthenaIngestionStrategy:
-    """Ingest data from AWS Athena via awswrangler."""
+    """Ingest data from AWS Athena via ``awswrangler``.
+
+    Executes a SQL query against an Athena database, converts the result
+    to a Polars DataFrame, writes it as raw Parquet, and records the
+    event in the metadata registry.
+
+    Attributes:
+        data_dir: Root directory under which raw Parquet snapshots are
+            stored (``<data_dir>/raw/<dataset>/``).
+        registry: Metadata registry for recording ingestion events and
+            generating unique ingestion IDs.
+    """
 
     def __init__(self, data_dir: Path, registry: MetadataRegistry) -> None:
         self.data_dir = data_dir
         self.registry = registry
 
     def ingest(self, dataset_name: str, config: dict[str, Any]) -> IngestionResult:
-        """Execute an Athena query and store result as raw Parquet."""
+        """Execute an Athena SQL query and store the result as raw Parquet.
+
+        Uses ``awswrangler`` (imported lazily) to run the query against
+        AWS Athena. The resulting pandas DataFrame is converted to
+        Polars, written to Parquet, and logged in the metadata registry.
+
+        Args:
+            dataset_name: Logical dataset name used for directory layout
+                and metadata.
+            config: Configuration dict with the following keys:
+
+                - ``"query"`` (str): SQL query to execute (required).
+                - ``"database"`` (str): Athena database name (required).
+                - ``"s3_output"`` (str | None): S3 path for Athena
+                  query results staging.
+
+        Returns:
+            An ``IngestionResult`` with the generated ingestion ID,
+            output path, row count, and timestamp.
+
+        Raises:
+            IngestionError: If ``awswrangler`` is not installed, required
+                config keys are missing, the query fails, or the query
+                returns zero rows.
+        """
         try:
             import awswrangler as wr
         except ImportError as e:

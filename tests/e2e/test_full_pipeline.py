@@ -32,8 +32,18 @@ _MOCK_DATA_DIR = _PROJECT_ROOT / "data" / "mock_data"
 
 
 def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
-    """Create an isolated directory structure and return
-    (data_dir, config_dir, metadata_dir)."""
+    """Create an isolated ADP directory tree and copy mock data into it.
+
+    Builds the standard ``data/{raw,staged,normalized,features}``,
+    ``config/``, and ``metadata/`` directories under *tmp_path*, then
+    copies all CSV files from the project's ``data/mock_data/`` folder.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory.
+
+    Returns:
+        Tuple of ``(data_dir, config_dir, metadata_dir)``.
+    """
     data_dir = tmp_path / "data"
     config_dir = tmp_path / "config"
     metadata_dir = tmp_path / "metadata"
@@ -53,7 +63,18 @@ def _create_isolated_env(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 def _write_ohlcv_config(config_dir: Path, data_dir: Path) -> Path:
-    """Write datasets.yaml for OHLCV dataset with correct path."""
+    """Write a ``datasets.yaml`` defining the ``ohlcv_btcusdt`` dataset.
+
+    The generated config points at the mock OHLCV CSV already copied
+    into *data_dir* by ``_create_isolated_env``.
+
+    Args:
+        config_dir: Directory where ``datasets.yaml`` will be written.
+        data_dir: Root data directory containing ``mock_data/``.
+
+    Returns:
+        Path to the written ``datasets.yaml`` file.
+    """
     datasets_yaml = config_dir / "datasets.yaml"
     csv_path = data_dir / "mock_data" / "ohlcv_btcusdt_1s.csv"
     datasets_yaml.write_text(
@@ -99,7 +120,17 @@ def _write_ohlcv_config(config_dir: Path, data_dir: Path) -> Path:
 
 
 def _write_ohlcv_features_config(config_dir: Path) -> Path:
-    """Write features.yaml for OHLCV dataset."""
+    """Write a ``features.yaml`` defining the ``candle_factors`` feature set.
+
+    Includes seven features: rolling_vol_5, sma_10, sma_50, ewma_20,
+    close_returns, close_log_returns, and vwap.
+
+    Args:
+        config_dir: Directory where ``features.yaml`` will be written.
+
+    Returns:
+        Path to the written ``features.yaml`` file.
+    """
     features_yaml = config_dir / "features.yaml"
     features_yaml.write_text(
         textwrap.dedent("""\
@@ -140,7 +171,18 @@ def _write_ohlcv_features_config(config_dir: Path) -> Path:
 
 
 def _write_rfq_config(config_dir: Path, data_dir: Path) -> Path:
-    """Write datasets.yaml for RFQ dataset with correct path."""
+    """Write a ``datasets.yaml`` defining the ``rfq_events`` dataset.
+
+    The generated config points at the mock RFQ CSV already copied
+    into *data_dir* by ``_create_isolated_env``.
+
+    Args:
+        config_dir: Directory where ``datasets.yaml`` will be written.
+        data_dir: Root data directory containing ``mock_data/``.
+
+    Returns:
+        Path to the written ``datasets.yaml`` file.
+    """
     datasets_yaml = config_dir / "datasets.yaml"
     csv_path = data_dir / "mock_data" / "rfq_events.csv"
     datasets_yaml.write_text(

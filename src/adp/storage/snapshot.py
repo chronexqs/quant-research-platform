@@ -20,10 +20,20 @@ logger = logging.getLogger(__name__)
 
 
 def _today_str() -> str:
+    """Return today's UTC date as a compact ``YYYYMMDD`` string for use in IDs."""
     return datetime.now(UTC).strftime("%Y%m%d")
 
 
 def generate_ingestion_id(dataset_name: str, registry: MetadataRegistry) -> str:
+    """Generate a unique ingestion ID in the format ``{dataset}_ing_{date}_{seq}``.
+
+    Args:
+        dataset_name: Name of the dataset being ingested.
+        registry: Metadata registry used to determine the next sequence number.
+
+    Returns:
+        A new, collision-free ingestion identifier string.
+    """
     date_str = _today_str()
     prefix = f"{dataset_name}_ing"
     seq = registry.get_next_sequence(prefix, date_str)
@@ -31,6 +41,15 @@ def generate_ingestion_id(dataset_name: str, registry: MetadataRegistry) -> str:
 
 
 def generate_snapshot_id(dataset_name: str, registry: MetadataRegistry) -> str:
+    """Generate a unique snapshot ID in the format ``{dataset}_snap_{date}_{seq}``.
+
+    Args:
+        dataset_name: Name of the dataset being snapshotted.
+        registry: Metadata registry used to determine the next sequence number.
+
+    Returns:
+        A new, collision-free snapshot identifier string.
+    """
     date_str = _today_str()
     prefix = f"{dataset_name}_snap"
     seq = registry.get_next_sequence(prefix, date_str)
@@ -42,6 +61,18 @@ def generate_feature_snapshot_id(
     feature_set_name: str,
     registry: MetadataRegistry,
 ) -> str:
+    """Generate a unique feature snapshot ID.
+
+    The format is ``{dataset}_{feature_set}_fsnap_{date}_{seq}``.
+
+    Args:
+        dataset_name: Name of the source dataset.
+        feature_set_name: Logical name of the feature set.
+        registry: Metadata registry used to determine the next sequence number.
+
+    Returns:
+        A new, collision-free feature snapshot identifier string.
+    """
     date_str = _today_str()
     prefix = f"{dataset_name}_{feature_set_name}_fsnap"
     seq = registry.get_next_sequence(prefix, date_str)
@@ -49,7 +80,18 @@ def generate_feature_snapshot_id(
 
 
 class SnapshotEngine:
-    """Creates immutable normalized snapshots from raw ingested data."""
+    """Creates immutable, normalized snapshots from raw ingested data.
+
+    The engine loads one or more raw ingestion Parquet files, concatenates
+    them, runs the dataset's normalization pipeline, persists the output to
+    Parquet with a sidecar ``_metadata.json``, and registers the snapshot
+    (including lineage links) in the metadata registry.
+
+    Attributes:
+        data_dir: Root data directory containing ``raw/`` and ``normalized/``
+            sub-trees.
+        registry: Metadata registry for recording snapshots and lineage.
+    """
 
     def __init__(self, data_dir: Path, registry: MetadataRegistry) -> None:
         self.data_dir = data_dir
@@ -63,7 +105,27 @@ class SnapshotEngine:
     ) -> str:
         """Create a normalized snapshot from one or more raw ingestions.
 
-        Returns the snapshot_id.
+        The method performs the following steps:
+
+        1. Load and concatenate raw Parquet data for each ingestion ID.
+        2. Apply the normalization pipeline defined in *dataset_config*.
+        3. Write the resulting DataFrame to Parquet with a metadata sidecar.
+        4. Register the snapshot and its lineage in the metadata registry.
+        5. Update the dataset's ``current_snapshot`` pointer.
+
+        Args:
+            dataset_name: Name of the target dataset.
+            dataset_config: Dataset configuration containing schema definitions
+                and processing/normalization settings.
+            ingestion_ids: One or more ingestion IDs whose raw data will be
+                combined into the snapshot.
+
+        Returns:
+            The generated snapshot ID string.
+
+        Raises:
+            SnapshotError: If *ingestion_ids* is empty or any referenced
+                ingestion record does not exist.
         """
         if not ingestion_ids:
             raise SnapshotError("No ingestion IDs provided")

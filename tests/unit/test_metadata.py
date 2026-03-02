@@ -20,6 +20,15 @@ from adp.metadata.registry import MetadataRegistry
 
 
 def _register_dataset(reg: MetadataRegistry, name: str = "test_ds") -> DatasetRecord:
+    """Register a dataset with a fixed schema hash and return the record.
+
+    Args:
+        reg: The in-memory metadata registry.
+        name: Dataset name to register.
+
+    Returns:
+        The newly created ``DatasetRecord``.
+    """
     return reg.register_dataset(name, schema_hash="abc123", description="test")
 
 
@@ -28,6 +37,16 @@ def _log_ingestion(
     dataset_name: str = "test_ds",
     ingestion_id: str = "ing_001",
 ) -> IngestionRecord:
+    """Log a synthetic ingestion record with deterministic defaults.
+
+    Args:
+        reg: The in-memory metadata registry.
+        dataset_name: Target dataset.
+        ingestion_id: Unique ingestion identifier.
+
+    Returns:
+        The newly created ``IngestionRecord``.
+    """
     return reg.log_ingestion(
         ingestion_id=ingestion_id,
         dataset_name=dataset_name,
@@ -42,6 +61,16 @@ def _create_snapshot(
     dataset_name: str = "test_ds",
     snapshot_id: str = "snap_001",
 ) -> SnapshotRecord:
+    """Create a snapshot record with deterministic defaults.
+
+    Args:
+        reg: The in-memory metadata registry.
+        dataset_name: Target dataset.
+        snapshot_id: Unique snapshot identifier.
+
+    Returns:
+        The newly created ``SnapshotRecord``.
+    """
     return reg.create_snapshot(
         snapshot_id=snapshot_id,
         dataset_name=dataset_name,

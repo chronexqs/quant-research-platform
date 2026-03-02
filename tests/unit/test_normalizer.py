@@ -14,6 +14,16 @@ from adp.processing.normalizer import NormalizationPipeline, normalize_timezones
 
 
 def _ts_col(name: str = "timestamp", tz: str = "UTC") -> ColumnDef:
+    """Build a non-nullable datetime ``ColumnDef`` with the given source timezone.
+
+    Args:
+        name: Column name.  Defaults to ``"timestamp"``.
+        tz: IANA timezone string applied as ``source_timezone``.  Defaults
+            to ``"UTC"``.
+
+    Returns:
+        A ``ColumnDef`` configured for datetime normalization tests.
+    """
     return ColumnDef(name=name, type=ColumnType.datetime_, nullable=False, source_timezone=tz)
 
 

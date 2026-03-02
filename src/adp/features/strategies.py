@@ -17,6 +17,8 @@ class FeatureStrategy(Protocol):
 
 
 class RollingStdStrategy:
+    """Compute the rolling standard deviation of a column over a fixed window."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         return lf.with_columns(
             pl.col(params["column"]).rolling_std(window_size=params["window"]).alias(feature_name)
@@ -24,6 +26,8 @@ class RollingStdStrategy:
 
 
 class MovingAverageStrategy:
+    """Compute the simple moving average (rolling mean) of a column over a fixed window."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         return lf.with_columns(
             pl.col(params["column"]).rolling_mean(window_size=params["window"]).alias(feature_name)
@@ -31,6 +35,8 @@ class MovingAverageStrategy:
 
 
 class EWMAStrategy:
+    """Compute the exponentially weighted moving average using a span parameter."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         return lf.with_columns(
             pl.col(params["column"]).ewm_mean(span=params["span"]).alias(feature_name)
@@ -38,6 +44,8 @@ class EWMAStrategy:
 
 
 class RollingMinStrategy:
+    """Compute the rolling minimum of a column over a fixed window."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         return lf.with_columns(
             pl.col(params["column"]).rolling_min(window_size=params["window"]).alias(feature_name)
@@ -45,6 +53,8 @@ class RollingMinStrategy:
 
 
 class RollingMaxStrategy:
+    """Compute the rolling maximum of a column over a fixed window."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         return lf.with_columns(
             pl.col(params["column"]).rolling_max(window_size=params["window"]).alias(feature_name)
@@ -52,6 +62,13 @@ class RollingMaxStrategy:
 
 
 class VWAPStrategy:
+    """Compute the volume-weighted average price (VWAP).
+
+    Supports both a rolling window variant and a cumulative (session) variant.
+    When ``window`` is provided in *params*, a rolling VWAP is computed;
+    otherwise cumulative sums from the start of the series are used.
+    """
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         price_col = params["price_column"]
         vol_col = params["volume_column"]
@@ -75,6 +92,8 @@ class VWAPStrategy:
 
 
 class ReturnsStrategy:
+    """Compute simple (arithmetic) period-over-period returns: ``(x - x_prev) / x_prev``."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         col = params["column"]
         prev = pl.col(col).shift(1)
@@ -87,6 +106,12 @@ class ReturnsStrategy:
 
 
 class LogReturnsStrategy:
+    """Compute logarithmic returns: ``ln(x / x_prev)``.
+
+    Returns ``None`` when the previous value is near-zero or the ratio is
+    non-positive to avoid domain errors in the log function.
+    """
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         col = params["column"]
         prev = pl.col(col).shift(1)
@@ -100,6 +125,8 @@ class LogReturnsStrategy:
 
 
 class ZScoreStrategy:
+    """Compute the rolling z-score: ``(x - rolling_mean) / rolling_std``."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         col = params["column"]
         window = params["window"]
@@ -114,6 +141,8 @@ class ZScoreStrategy:
 
 
 class RealizedVolatilityStrategy:
+    """Compute realised volatility as the square root of the rolling sum of squared returns."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         col = params["column"]
         window = params["window"]
@@ -129,6 +158,8 @@ class RealizedVolatilityStrategy:
 
 
 class CrossSectionalRankStrategy:
+    """Compute the cross-sectional rank of a column within groups defined by ``group_by``."""
+
     def compute(self, lf: pl.LazyFrame, feature_name: str, params: dict[str, Any]) -> pl.LazyFrame:
         col = params["column"]
         group_col = params["group_by"]
@@ -137,6 +168,8 @@ class CrossSectionalRankStrategy:
         )
 
 
+# Maps YAML ``type`` strings to singleton strategy instances.  Feature
+# definitions reference these keys to select the computation logic.
 STRATEGY_REGISTRY: dict[str, FeatureStrategy] = {
     "rolling_std": RollingStdStrategy(),
     "moving_average": MovingAverageStrategy(),

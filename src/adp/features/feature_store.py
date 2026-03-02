@@ -19,9 +19,29 @@ def load_feature_snapshot(
     data_dir: Path | None = None,
     registry: MetadataRegistry | None = None,
 ) -> pl.LazyFrame:
-    """Load a feature snapshot as a Polars LazyFrame.
+    """Load a materialised feature snapshot as a Polars LazyFrame.
 
-    If snapshot_id is None, loads the latest for this feature set.
+    When *snapshot_id* is provided the exact snapshot is loaded; otherwise
+    the most recent snapshot for the given feature set and dataset is
+    resolved automatically via the metadata registry.
+
+    Args:
+        dataset_name: Name of the source dataset.
+        feature_set_name: Logical name of the feature set.
+        snapshot_id: Explicit feature snapshot ID.  When ``None`` the latest
+            available snapshot is used.
+        data_dir: Unused in the current implementation but reserved for
+            future direct-path resolution without a registry.
+        registry: Metadata registry used to look up snapshot records.
+
+    Returns:
+        A Polars ``LazyFrame`` scanning the feature snapshot Parquet data.
+
+    Raises:
+        FeatureSetNotFoundError: If *registry* is ``None`` or no snapshots
+            exist for the requested feature set.
+        FeatureSnapshotNotFoundError: If the explicit *snapshot_id* does not
+            exist in the registry.
     """
     if registry is None:
         raise FeatureSetNotFoundError("MetadataRegistry is required")
